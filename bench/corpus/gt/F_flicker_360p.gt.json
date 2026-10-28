@@ -1,0 +1,152 @@
+{
+  "name": "F_flicker_360p",
+  "file": "corpus/F_flicker_360p.mp4",
+  "category": "F_flicker_flash",
+  "width": 640,
+  "height": 360,
+  "fps": 30,
+  "frames": 720,
+  "duration": 24.0,
+  "container_duration": 24.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "CONTINUOUS",
+      "start": 0.0,
+      "end": 24.0,
+      "start_frame": 0,
+      "frames": 720
+    }
+  ],
+  "cuts": [],
+  "n_shots": 1,
+  "n_cuts": 0,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/F_flicker_360p.png",
+  "bytes": 982956,
+  "sha256": "569469bb22fc043a9a2c7d1d0c6b654021419d4fc2893811262a8df826574082",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": null,
+  "notes": "24.000s of continuously varying colour + two moving elements, with 12 SINGLE-FRAME pure-white flashes at the frame indices listed in flash_frames[]. Each flash lasts 1/30s = 33.3ms. A tile grid that spends a cell on a flash wastes that cell's whole time span, and a scene detector that thresholds naively will report 24 cuts where there are none. Content is designed so the luma of neighbouring normal frames differs by < 2/255, making a white frame pop.",
+  "flash_frames": [
+    {
+      "frame": 48,
+      "time": 1.6
+    },
+    {
+      "frame": 105,
+      "time": 3.5
+    },
+    {
+      "frame": 168,
+      "time": 5.6
+    },
+    {
+      "frame": 213,
+      "time": 7.1
+    },
+    {
+      "frame": 288,
+      "time": 9.6
+    },
+    {
+      "frame": 333,
+      "time": 11.1
+    },
+    {
+      "frame": 405,
+      "time": 13.5
+    },
+    {
+      "frame": 462,
+      "time": 15.4
+    },
+    {
+      "frame": 519,
+      "time": 17.3
+    },
+    {
+      "frame": 576,
+      "time": 19.2
+    },
+    {
+      "frame": 639,
+      "time": 21.3
+    },
+    {
+      "frame": 690,
+      "time": 23.0
+    }
+  ],
+  "expected_visual_changes": [
+    {
+      "frame": 48,
+      "time": 1.6,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 105,
+      "time": 3.5,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 168,
+      "time": 5.6,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 213,
+      "time": 7.1,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 288,
+      "time": 9.6,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 333,
+      "time": 11.1,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 405,
+      "time": 13.5,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 462,
+      "time": 15.4,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 519,
+      "time": 17.3,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 576,
+      "time": 19.2,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 639,
+      "time": 21.3,
+      "reason": "single-frame white flash (not a shot cut)"
+    },
+    {
+      "frame": 690,
+      "time": 23.0,
+      "reason": "single-frame white flash (not a shot cut)"
+    }
+  ],
+  "flash_count": 12,
+  "flash_duration_ms": 33.333,
+  "expected_clean_frame_count": 708,
+  "frames_actual": 720,
+  "build_seconds": 2.6
+}

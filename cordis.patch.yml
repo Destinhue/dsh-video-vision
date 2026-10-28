@@ -1,0 +1,6 @@
+# dsh-video-vision — insert this plugin into the harness tree.
+# Same shape as every other bundle patch: one insert entry whose `name` is
+# resolved from the profile's node_modules.
+- insert:
+    - id: dsh-video-vision
+      name: dsh-video-vision

@@ -1,0 +1,12 @@
+node_modules/
+.upstream/
+bench/out/
+bench/tmp/
+bench/ab/upstream-run-sheets/
+bench/ab/.cache-*/
+test/.tmp/
+dist/
+*.log
+*.zip
+.DS_Store
+Thumbs.db

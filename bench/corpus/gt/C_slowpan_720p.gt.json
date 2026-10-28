@@ -1,0 +1,51 @@
+{
+  "name": "C_slowpan_720p",
+  "file": "corpus/C_slowpan_720p.mp4",
+  "category": "C_slow_pan",
+  "width": 1280,
+  "height": 720,
+  "fps": 25,
+  "frames": 750,
+  "duration": 30.0,
+  "container_duration": 30.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "SINGLE_TAKE",
+      "start": 0.0,
+      "end": 30.0,
+      "start_frame": 0,
+      "frames": 750
+    }
+  ],
+  "cuts": [],
+  "n_shots": 1,
+  "n_cuts": 0,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/C_slowpan_720p.png",
+  "bytes": 1659161,
+  "sha256": "e2e61bcd3333a7c23966704c8685883b069ae3c8b65eb7187e6d6b1a694c6adf",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": null,
+  "notes": "One continuous 30.000s take: a 1280px viewport pans across a 2560px panorama (0 -> 1280 px, ~42.7 px/s) while a 'MOVING LABEL' sprite drifts horizontally AND vertically (sin, period 6s) and a burned-in timer ticks. Ground truth has exactly 0 cuts, so any cut reported here is a false positive. Motion is smooth: neighbouring frames differ, which stresses scene detectors that threshold too low.",
+  "pan": {
+    "from_x": 0,
+    "to_x": 1280,
+    "speed_px_per_s": 42.667
+  },
+  "moving_text": {
+    "period_s": 6.0,
+    "x_range_px": [
+      60,
+      820
+    ],
+    "y_center_px": 216,
+    "y_amplitude_px": 70
+  },
+  "frames_actual": 750,
+  "build_seconds": 5.0
+}

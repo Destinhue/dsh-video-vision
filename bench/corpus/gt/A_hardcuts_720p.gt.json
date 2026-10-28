@@ -1,0 +1,214 @@
+{
+  "name": "A_hardcuts_720p",
+  "file": "corpus/A_hardcuts_720p.mp4",
+  "category": "A_hard_cuts",
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "frames": 1200,
+  "duration": 40.0,
+  "container_duration": 40.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "SHOT01",
+      "start": 0.0,
+      "end": 4.0,
+      "start_frame": 0,
+      "frames": 120
+    },
+    {
+      "index": 2,
+      "label": "SHOT02",
+      "start": 4.0,
+      "end": 8.0,
+      "start_frame": 120,
+      "frames": 120
+    },
+    {
+      "index": 3,
+      "label": "SHOT03",
+      "start": 8.0,
+      "end": 12.0,
+      "start_frame": 240,
+      "frames": 120
+    },
+    {
+      "index": 4,
+      "label": "SHOT04",
+      "start": 12.0,
+      "end": 16.0,
+      "start_frame": 360,
+      "frames": 120
+    },
+    {
+      "index": 5,
+      "label": "SHOT05",
+      "start": 16.0,
+      "end": 20.0,
+      "start_frame": 480,
+      "frames": 120
+    },
+    {
+      "index": 6,
+      "label": "SHOT06",
+      "start": 20.0,
+      "end": 24.0,
+      "start_frame": 600,
+      "frames": 120
+    },
+    {
+      "index": 7,
+      "label": "SHOT07",
+      "start": 24.0,
+      "end": 28.0,
+      "start_frame": 720,
+      "frames": 120
+    },
+    {
+      "index": 8,
+      "label": "SHOT08",
+      "start": 28.0,
+      "end": 32.0,
+      "start_frame": 840,
+      "frames": 120
+    },
+    {
+      "index": 9,
+      "label": "SHOT09",
+      "start": 32.0,
+      "end": 36.0,
+      "start_frame": 960,
+      "frames": 120
+    },
+    {
+      "index": 10,
+      "label": "SHOT10",
+      "start": 36.0,
+      "end": 40.0,
+      "start_frame": 1080,
+      "frames": 120
+    }
+  ],
+  "cuts": [
+    4.0,
+    8.0,
+    12.0,
+    16.0,
+    20.0,
+    24.0,
+    28.0,
+    32.0,
+    36.0
+  ],
+  "n_shots": 10,
+  "n_cuts": 9,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/A_hardcuts_720p.png",
+  "bytes": 428278,
+  "sha256": "a9230450523b90cbb0d8fde10f794321e848e0788eb8945ef4c3fba14c9f1040",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": null,
+  "notes": "Ten 4.000s solid-colour shots with a big English label and the cut time burned in. SHOT05 and SHOT06 have deliberately EQUAL mean luma but opposite hue, so a luma-difference scene detector should MISS that cut while an HSV/chroma detector should see it. All 9 cuts are hard: no fades, no motion, no audio.",
+  "luma_equal_pair": {
+    "shots": [
+      5,
+      6
+    ],
+    "labels": [
+      "SHOT05",
+      "SHOT06"
+    ],
+    "rgb": [
+      [
+        255,
+        0,
+        0
+      ],
+      [
+        5,
+        63,
+        119
+      ]
+    ],
+    "teal_original_design_rgb": [
+      0,
+      64,
+      117
+    ],
+    "offset_from_design_rgb": [
+      5,
+      -1,
+      2
+    ],
+    "designed_mean_luma_rgb709": [
+      54.213,
+      54.7124
+    ],
+    "measured_yavg_limited_range": {
+      "SHOT05": 75.584,
+      "SHOT06": 75.698
+    },
+    "measured_delta_limited_range": 0.114,
+    "measured_delta_pct_of_range": 0.0521,
+    "threshold_guidance": "Any luma-difference scene detector with a threshold above 0.05% of the 219-code video range must NOT report a cut at t=20.0s. An HSV/chroma detector must report 9 cuts."
+  },
+  "shots_rgb": [
+    [
+      210,
+      35,
+      45
+    ],
+    [
+      30,
+      95,
+      190
+    ],
+    [
+      245,
+      195,
+      45
+    ],
+    [
+      28,
+      28,
+      34
+    ],
+    [
+      255,
+      0,
+      0
+    ],
+    [
+      5,
+      63,
+      119
+    ],
+    [
+      240,
+      240,
+      240
+    ],
+    [
+      20,
+      150,
+      90
+    ],
+    [
+      120,
+      60,
+      160
+    ],
+    [
+      12,
+      12,
+      14
+    ]
+  ],
+  "frames_actual": 1200,
+  "build_seconds": 14.7
+}

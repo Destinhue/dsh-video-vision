@@ -1,0 +1,113 @@
+{
+  "name": "E_blurtransition_720p",
+  "file": "corpus/E_blurtransition_720p.mp4",
+  "category": "E_blur_transition",
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "frames": 330,
+  "duration": 11.0,
+  "container_duration": 11.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "SHOT_A",
+      "start": 0.0,
+      "end": 5.0,
+      "start_frame": 0,
+      "frames": 150
+    },
+    {
+      "index": 2,
+      "label": "TRANSITION",
+      "start": 5.0,
+      "end": 6.0,
+      "start_frame": 150,
+      "frames": 30
+    },
+    {
+      "index": 3,
+      "label": "SHOT_B",
+      "start": 6.0,
+      "end": 11.0,
+      "start_frame": 180,
+      "frames": 150
+    }
+  ],
+  "cuts": [],
+  "n_shots": 3,
+  "n_cuts": 0,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/E_blurtransition_720p.png",
+  "bytes": 200781,
+  "sha256": "d805901d7c309f19b5220a71c8a4809d36f9e8ebc295351d96427b8dc44359b7",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": null,
+  "notes": "Shot A (5.000s, sharp) -> 30 transition frames (1.000s) -> shot B (5.000s, sharp). Transition frame i is a crossfade blended with a horizontal motion blur whose radius follows 34*sin(pi*alpha), so it is ~0px at both ends and ~34px in the middle: the sharpest frame in the transition window IS the first or last one. There are NO hard cuts; a correct sampler should pick a sharp frame from the window rather than the blurriest one, so ground truth records the measured sharpness curve and the blurriest frame index.",
+  "transitions": [
+    {
+      "start": 5.0,
+      "end": 6.0,
+      "type": "motion_blur_x",
+      "frames": [
+        150,
+        179
+      ]
+    }
+  ],
+  "sharpness": {
+    "metric": "var(dx)+var(dy) of luma",
+    "clean_shot_value": 503.23,
+    "transition_curve": [
+      503.23,
+      315.85,
+      286.88,
+      260.27,
+      241.24,
+      230.51,
+      221.52,
+      216.05,
+      207.91,
+      203.04,
+      197.72,
+      192.88,
+      190.82,
+      188.6,
+      185.98,
+      185.1,
+      183.04,
+      183.19,
+      180.53,
+      183.14,
+      183.36,
+      185.78,
+      188.57,
+      191.36,
+      194.73,
+      201.65,
+      213.02,
+      232.67,
+      251.85,
+      403.28
+    ],
+    "blurriest_frame": 168,
+    "blurriest_time": 5.6,
+    "blurriest_value": 180.53,
+    "clean_frame_ranges": [
+      [
+        0,
+        149
+      ],
+      [
+        180,
+        329
+      ]
+    ]
+  },
+  "frames_actual": 330,
+  "build_seconds": 5.4
+}

@@ -1,0 +1,203 @@
+{
+  "name": "G_speech_360p",
+  "file": "corpus/G_speech_360p.mp4",
+  "category": "G_speech_asr",
+  "width": 640,
+  "height": 360,
+  "fps": 30,
+  "frames": 662,
+  "duration": 22.066667,
+  "container_duration": 22.066667,
+  "shots": [
+    {
+      "index": 1,
+      "label": "SPEECH_CLIP",
+      "start": 0.0,
+      "end": 22.066667,
+      "start_frame": 0,
+      "frames": 662
+    }
+  ],
+  "cuts": [],
+  "n_shots": 1,
+  "n_cuts": 0,
+  "text_cards": [
+    {
+      "start": 0.0,
+      "end": 1.0,
+      "text": "SILENCE",
+      "detail": "gap 1.00s"
+    },
+    {
+      "start": 1.0,
+      "end": 4.3294,
+      "text": "SPEECH",
+      "detail": "The quick brown fox jumps over the lazy dog."
+    },
+    {
+      "start": 4.3294,
+      "end": 6.0294,
+      "text": "SILENCE",
+      "detail": "gap 1.70s"
+    },
+    {
+      "start": 6.0294,
+      "end": 10.0536,
+      "text": "SPEECH",
+      "detail": "Schema migration failed in the nightly build at three in the morning."
+    },
+    {
+      "start": 10.0536,
+      "end": 11.8536,
+      "text": "SILENCE",
+      "detail": "gap 1.80s"
+    },
+    {
+      "start": 11.8536,
+      "end": 15.1929,
+      "text": "SPEECH",
+      "detail": "Please rotate the API key before Friday."
+    },
+    {
+      "start": 15.1929,
+      "end": 16.5929,
+      "text": "SILENCE",
+      "detail": "gap 1.40s"
+    },
+    {
+      "start": 16.5929,
+      "end": 20.0422,
+      "text": "SPEECH",
+      "detail": "One hundred and forty two items remain in the queue."
+    },
+    {
+      "start": 20.0422,
+      "end": 22.066667,
+      "text": "SILENCE",
+      "detail": "tail 2.02s"
+    }
+  ],
+  "speech": [
+    {
+      "index": 1,
+      "start": 1.0,
+      "end": 4.3294,
+      "text": "The quick brown fox jumps over the lazy dog.",
+      "voice": "Microsoft Zira Desktop"
+    },
+    {
+      "index": 2,
+      "start": 6.0294,
+      "end": 10.0536,
+      "text": "Schema migration failed in the nightly build at three in the morning.",
+      "voice": "Microsoft Zira Desktop"
+    },
+    {
+      "index": 3,
+      "start": 11.8536,
+      "end": 15.1929,
+      "text": "Please rotate the API key before Friday.",
+      "voice": "Microsoft Zira Desktop"
+    },
+    {
+      "index": 4,
+      "start": 16.5929,
+      "end": 20.0422,
+      "text": "One hundred and forty two items remain in the queue.",
+      "voice": "Microsoft Zira Desktop"
+    }
+  ],
+  "poster": "corpus/posters/G_speech_360p.png",
+  "bytes": 355053,
+  "sha256": "1a520da883691e2b6b7fa3405fd9e46e9a29000500c3e10749eac28874bdd261",
+  "vcodec": "h264",
+  "acodec": "aac",
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": "44100",
+  "notes": "Windows SAPI (Microsoft Zira Desktop) renders four sentences to 44.1kHz mono WAV; they are laid out at the offsets below with 1.4-1.8s silence between them. Each sentence's exact end time is its WAV duration, not an estimate. The video card switches between 'SILENCE' (dark blue) and 'SPEECH' (dark amber) exactly at each speech start, and a green bar at the bottom tracks the per-frame RMS in dBFS (-60..0), so audio/video offset is measurable to one frame (33.3ms). Per-frame envelope: G_speech_360p.envelope.json.",
+  "silence_gaps": [
+    {
+      "start": 0.0,
+      "end": 1.0,
+      "duration": 1.0
+    },
+    {
+      "start": 4.3294,
+      "end": 6.0294,
+      "duration": 1.7
+    },
+    {
+      "start": 10.0536,
+      "end": 11.8536,
+      "duration": 1.8
+    },
+    {
+      "start": 15.1929,
+      "end": 16.5929,
+      "duration": 1.4
+    },
+    {
+      "start": 20.0422,
+      "end": 22.0667,
+      "duration": 2.0245
+    }
+  ],
+  "expected_visual_changes": [
+    {
+      "frame": 30,
+      "time": 1.0,
+      "reason": "banner switches to SPEECH (not a shot cut)"
+    },
+    {
+      "frame": 130,
+      "time": 4.3294,
+      "reason": "banner switches to SILENCE (not a shot cut)"
+    },
+    {
+      "frame": 181,
+      "time": 6.0294,
+      "reason": "banner switches to SPEECH (not a shot cut)"
+    },
+    {
+      "frame": 302,
+      "time": 10.0536,
+      "reason": "banner switches to SILENCE (not a shot cut)"
+    },
+    {
+      "frame": 356,
+      "time": 11.8536,
+      "reason": "banner switches to SPEECH (not a shot cut)"
+    },
+    {
+      "frame": 456,
+      "time": 15.1929,
+      "reason": "banner switches to SILENCE (not a shot cut)"
+    },
+    {
+      "frame": 498,
+      "time": 16.5929,
+      "reason": "banner switches to SPEECH (not a shot cut)"
+    },
+    {
+      "frame": 601,
+      "time": 20.0422,
+      "reason": "banner switches to SILENCE (not a shot cut)"
+    }
+  ],
+  "envelope_file": "corpus/G_speech_360p.envelope.json",
+  "audio_encoding": {
+    "sample_rate": 44100,
+    "codec": "aac",
+    "bitrate": "160k",
+    "channels": 2
+  },
+  "tts": {
+    "engine": "Windows SAPI System.Speech",
+    "voices": [
+      "Microsoft Zira Desktop"
+    ]
+  },
+  "frames_actual": 662,
+  "build_seconds": 3.0
+}

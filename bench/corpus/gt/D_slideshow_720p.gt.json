@@ -1,0 +1,170 @@
+{
+  "name": "D_slideshow_720p",
+  "file": "corpus/D_slideshow_720p.mp4",
+  "category": "D_slideshow_ocr",
+  "width": 1280,
+  "height": 720,
+  "fps": 24,
+  "frames": 864,
+  "duration": 36.0,
+  "container_duration": 36.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "CARD01",
+      "start": 0.0,
+      "end": 6.0,
+      "start_frame": 0,
+      "frames": 144
+    },
+    {
+      "index": 2,
+      "label": "CARD02",
+      "start": 6.0,
+      "end": 12.0,
+      "start_frame": 144,
+      "frames": 144
+    },
+    {
+      "index": 3,
+      "label": "CARD03",
+      "start": 12.0,
+      "end": 18.0,
+      "start_frame": 288,
+      "frames": 144
+    },
+    {
+      "index": 4,
+      "label": "CARD04",
+      "start": 18.0,
+      "end": 24.0,
+      "start_frame": 432,
+      "frames": 144
+    },
+    {
+      "index": 5,
+      "label": "CARD05",
+      "start": 24.0,
+      "end": 30.0,
+      "start_frame": 576,
+      "frames": 144
+    },
+    {
+      "index": 6,
+      "label": "CARD06",
+      "start": 30.0,
+      "end": 36.0,
+      "start_frame": 720,
+      "frames": 144
+    }
+  ],
+  "cuts": [
+    6.0,
+    12.0,
+    18.0,
+    24.0,
+    30.0
+  ],
+  "n_shots": 6,
+  "n_cuts": 5,
+  "text_cards": [
+    {
+      "start": 0.0,
+      "end": 6.0,
+      "index": 1,
+      "title_cn": "基准测试总览",
+      "title_en": "BENCHMARK OVERVIEW",
+      "lines": [
+        "帧采样 · frame sampling",
+        "镜头切分 · shot detection",
+        "语音转写 · speech to text"
+      ],
+      "text": "基准测试总览\nBENCHMARK OVERVIEW\n帧采样 · frame sampling\n镜头切分 · shot detection\n语音转写 · speech to text"
+    },
+    {
+      "start": 6.0,
+      "end": 12.0,
+      "index": 2,
+      "title_cn": "镜头切分",
+      "title_en": "SHOT DETECTION",
+      "lines": [
+        "硬切 · hard cut",
+        "淡入淡出 · fade",
+        "闪帧 · flash frame"
+      ],
+      "text": "镜头切分\nSHOT DETECTION\n硬切 · hard cut\n淡入淡出 · fade\n闪帧 · flash frame"
+    },
+    {
+      "start": 12.0,
+      "end": 18.0,
+      "index": 3,
+      "title_cn": "文字识别",
+      "title_en": "OCR READABILITY",
+      "lines": [
+        "中英混排 · mixed script",
+        "最小字号 46 像素",
+        "对比度 13:1"
+      ],
+      "text": "文字识别\nOCR READABILITY\n中英混排 · mixed script\n最小字号 46 像素\n对比度 13:1"
+    },
+    {
+      "start": 18.0,
+      "end": 24.0,
+      "index": 4,
+      "title_cn": "语音转写",
+      "title_en": "SPEECH TRANSCRIPTION",
+      "lines": [
+        "已知台词 · known script",
+        "静音间隔 1.8 秒",
+        "采样率 44100 Hz"
+      ],
+      "text": "语音转写\nSPEECH TRANSCRIPTION\n已知台词 · known script\n静音间隔 1.8 秒\n采样率 44100 Hz"
+    },
+    {
+      "start": 24.0,
+      "end": 30.0,
+      "index": 5,
+      "title_cn": "帧采样策略",
+      "title_en": "FRAME SAMPLING",
+      "lines": [
+        "均匀采样 · uniform",
+        "关键帧 · keyframe",
+        "质心采样 · centroid"
+      ],
+      "text": "帧采样策略\nFRAME SAMPLING\n均匀采样 · uniform\n关键帧 · keyframe\n质心采样 · centroid"
+    },
+    {
+      "start": 30.0,
+      "end": 36.0,
+      "index": 6,
+      "title_cn": "结论",
+      "title_en": "SUMMARY",
+      "lines": [
+        "九段素材 · nine clips",
+        "全部机器可读 · machine readable",
+        "真值精确到帧 · frame-exact"
+      ],
+      "text": "结论\nSUMMARY\n九段素材 · nine clips\n全部机器可读 · machine readable\n真值精确到帧 · frame-exact"
+    }
+  ],
+  "speech": [],
+  "poster": "corpus/posters/D_slideshow_720p.png",
+  "bytes": 574038,
+  "sha256": "a3dcf2524d367cbbc2d2c50275ee00b396bbdd7c25091649aeb9bb7b3231cd33",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": null,
+  "notes": "Six static slides of exactly 6.000s each. Titles are Chinese at 96px (Microsoft YaHei Bold), English subtitles at 52px, body lines at 46px, all >=46px tall at 720p so they stay ~11px tall in a 1280/5-wide tile. Every card carries both scripts on the same line-group, which is the hard case for OCR tile sizing: at 46px the CJK glyphs are 46x46 px, still legible after a 4x downscale, illegible after 8x.",
+  "card_texts": [
+    "基准测试总览\nBENCHMARK OVERVIEW\n帧采样 · frame sampling\n镜头切分 · shot detection\n语音转写 · speech to text",
+    "镜头切分\nSHOT DETECTION\n硬切 · hard cut\n淡入淡出 · fade\n闪帧 · flash frame",
+    "文字识别\nOCR READABILITY\n中英混排 · mixed script\n最小字号 46 像素\n对比度 13:1",
+    "语音转写\nSPEECH TRANSCRIPTION\n已知台词 · known script\n静音间隔 1.8 秒\n采样率 44100 Hz",
+    "帧采样策略\nFRAME SAMPLING\n均匀采样 · uniform\n关键帧 · keyframe\n质心采样 · centroid",
+    "结论\nSUMMARY\n九段素材 · nine clips\n全部机器可读 · machine readable\n真值精确到帧 · frame-exact"
+  ],
+  "frames_actual": 864,
+  "build_seconds": 2.2
+}

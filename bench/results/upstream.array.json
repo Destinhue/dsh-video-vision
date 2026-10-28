@@ -1,0 +1,1816 @@
+[
+  {
+    "clip": "A_hardcuts_720p",
+    "file": "bench/corpus/A_hardcuts_720p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [
+      4,
+      8,
+      12,
+      16,
+      20,
+      24,
+      28,
+      32,
+      36
+    ],
+    "error": null,
+    "wallMs": 1091,
+    "wallMsWarm": {
+      "reps": [
+        931,
+        1006,
+        1222,
+        1176
+      ],
+      "median": 1091,
+      "min": 931,
+      "max": 1222
+    },
+    "wallMsSecondCall": 931,
+    "wallMsCold": 1523,
+    "scanMsCold": 444,
+    "scanProgressCallsCold": 1198,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 707,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 107327,
+    "sheetWidth": 1066,
+    "sheetHeight": 600,
+    "sheetAspect": 1.777,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 527,
+    "cellH": 294,
+    "visionTokens": 407,
+    "visionTokensDetail": {
+      "gridW": 26,
+      "gridH": 15,
+      "raw": 407,
+      "tokens": 407,
+      "fedW": 1066,
+      "fedH": 600,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/A_hardcuts_720p.png",
+        "width": 1066,
+        "height": 600,
+        "declaredWidth": 1066,
+        "declaredHeight": 600,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 527,
+        "cellH": 294,
+        "stripH": 0,
+        "pngBytes": 107327,
+        "pngBytesOnDisk": 107327,
+        "visionTokens": 407,
+        "tokenDetail": {
+          "gridW": 26,
+          "gridH": 15,
+          "raw": 407,
+          "tokens": 407,
+          "fedW": 1066,
+          "fedH": 600,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+        },
+        "pngSha256": "d4c1e24de996422b",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 12,
+            "frame": 6,
+            "cuts": 2
+          },
+          {
+            "i": 2,
+            "start": 12,
+            "end": 20,
+            "frame": 12.25,
+            "cuts": 2
+          },
+          {
+            "i": 3,
+            "start": 20,
+            "end": 28,
+            "frame": 20.25,
+            "cuts": 2
+          },
+          {
+            "i": 4,
+            "start": 28,
+            "end": 40,
+            "frame": 39.75,
+            "cuts": 3
+          }
+        ]
+      }
+    ],
+    "cutsFound": [
+      4,
+      8,
+      12,
+      16,
+      20,
+      24,
+      28,
+      32,
+      36
+    ],
+    "matchedCuts": 9,
+    "falseCuts": 0,
+    "missedCuts": 0,
+    "f1": 1,
+    "precision": 1,
+    "recall": 1,
+    "matchPairs": [
+      {
+        "found": 4,
+        "truth": 4,
+        "deltaMs": 0
+      },
+      {
+        "found": 8,
+        "truth": 8,
+        "deltaMs": 0
+      },
+      {
+        "found": 12,
+        "truth": 12,
+        "deltaMs": 0
+      },
+      {
+        "found": 16,
+        "truth": 16,
+        "deltaMs": 0
+      },
+      {
+        "found": 20,
+        "truth": 20,
+        "deltaMs": 0
+      },
+      {
+        "found": 24,
+        "truth": 24,
+        "deltaMs": 0
+      },
+      {
+        "found": 28,
+        "truth": 28,
+        "deltaMs": 0
+      },
+      {
+        "found": 32,
+        "truth": 32,
+        "deltaMs": 0
+      },
+      {
+        "found": 36,
+        "truth": 36,
+        "deltaMs": 0
+      }
+    ],
+    "f1_tight_250ms": 1,
+    "matchedCuts_tight": 9,
+    "cutsTruthCount": 9,
+    "manifestChars": 779,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\A_hardcuts_720p.mp4\" duration=\"40.00\" window=\"0.00-40.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"9 (avg 4.4s)\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cut points (9): 00:04.00, 00:08.00, 00:12.00, 00:16.00, 00:20.00, 00:24.00, 00:28.00, 00:32.00, 00:36.00",
+      "cell 1 (r1c1) = 00:00.00-00:12.00 frame@00:06.00  cuts 2",
+      "cell 2 (r1c2) = 00:12.00-00:20.00 frame@00:12.25  cuts 2"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\A_hardcuts_720p.mp4\" duration=\"40.00\" window=\"0.00-40.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"9 (avg 4.4s)\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 1199,
+    "scoreSummary": {
+      "p50": 0,
+      "p90": 0,
+      "p95": 0,
+      "p99": 0.01,
+      "max": 134.65,
+      "frames": 1199
+    },
+    "durationS": 40,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "40s、10 个镜头 → 4 帧足够概览",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "B_montage_360p",
+    "file": "bench/corpus/B_montage_360p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [
+      1.067,
+      1.9,
+      2.8,
+      3.833,
+      4.667,
+      5.6,
+      6.6,
+      7.2,
+      7.8,
+      8.433,
+      9.033,
+      10.067,
+      11.1,
+      11.667,
+      12.4,
+      13.367,
+      13.933,
+      14.9,
+      15.467,
+      16.2,
+      17.167,
+      17.8,
+      18.467,
+      19.067
+    ],
+    "error": null,
+    "wallMs": 1033,
+    "wallMsWarm": {
+      "reps": [
+        1119,
+        1061,
+        1000,
+        1004
+      ],
+      "median": 1033,
+      "min": 1000,
+      "max": 1119
+    },
+    "wallMsSecondCall": 1119,
+    "wallMsCold": 1448,
+    "scanMsCold": 84,
+    "scanProgressCallsCold": 458,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 621,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 94282,
+    "sheetWidth": 1066,
+    "sheetHeight": 600,
+    "sheetAspect": 1.777,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 527,
+    "cellH": 294,
+    "visionTokens": 407,
+    "visionTokensDetail": {
+      "gridW": 26,
+      "gridH": 15,
+      "raw": 407,
+      "tokens": 407,
+      "fedW": 1066,
+      "fedH": 600,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/B_montage_360p.png",
+        "width": 1066,
+        "height": 600,
+        "declaredWidth": 1066,
+        "declaredHeight": 600,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 527,
+        "cellH": 294,
+        "stripH": 0,
+        "pngBytes": 94282,
+        "pngBytesOnDisk": 94282,
+        "visionTokens": 407,
+        "tokenDetail": {
+          "gridW": 26,
+          "gridH": 15,
+          "raw": 407,
+          "tokens": 407,
+          "fedW": 1066,
+          "fedH": 600,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+        },
+        "pngSha256": "ce3d3f835bd30129",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 5.6,
+            "frame": 5.35,
+            "cuts": 5
+          },
+          {
+            "i": 2,
+            "start": 5.6,
+            "end": 10.067,
+            "frame": 9.817,
+            "cuts": 6
+          },
+          {
+            "i": 3,
+            "start": 10.067,
+            "end": 14.9,
+            "frame": 14.65,
+            "cuts": 6
+          },
+          {
+            "i": 4,
+            "start": 14.9,
+            "end": 20,
+            "frame": 19.75,
+            "cuts": 7
+          }
+        ]
+      }
+    ],
+    "cutsFound": [
+      1.067,
+      1.9,
+      2.8,
+      3.833,
+      4.667,
+      5.6,
+      6.6,
+      7.2,
+      7.8,
+      8.433,
+      9.033,
+      10.067,
+      11.1,
+      11.667,
+      12.4,
+      13.367,
+      13.933,
+      14.9,
+      15.467,
+      16.2,
+      17.167,
+      17.8,
+      18.467,
+      19.067
+    ],
+    "matchedCuts": 24,
+    "falseCuts": 0,
+    "missedCuts": 0,
+    "f1": 1,
+    "precision": 1,
+    "recall": 1,
+    "matchPairs": [
+      {
+        "found": 1.067,
+        "truth": 1.067,
+        "deltaMs": 0
+      },
+      {
+        "found": 1.9,
+        "truth": 1.9,
+        "deltaMs": 0
+      },
+      {
+        "found": 2.8,
+        "truth": 2.8,
+        "deltaMs": 0
+      },
+      {
+        "found": 3.833,
+        "truth": 3.833,
+        "deltaMs": 0
+      },
+      {
+        "found": 4.667,
+        "truth": 4.667,
+        "deltaMs": 0
+      },
+      {
+        "found": 5.6,
+        "truth": 5.6,
+        "deltaMs": 0
+      },
+      {
+        "found": 6.6,
+        "truth": 6.6,
+        "deltaMs": 0
+      },
+      {
+        "found": 7.2,
+        "truth": 7.2,
+        "deltaMs": 0
+      },
+      {
+        "found": 7.8,
+        "truth": 7.8,
+        "deltaMs": 0
+      },
+      {
+        "found": 8.433,
+        "truth": 8.433,
+        "deltaMs": 0
+      },
+      {
+        "found": 9.033,
+        "truth": 9.033,
+        "deltaMs": 0
+      },
+      {
+        "found": 10.067,
+        "truth": 10.067,
+        "deltaMs": 0
+      },
+      {
+        "found": 11.1,
+        "truth": 11.1,
+        "deltaMs": 0
+      },
+      {
+        "found": 11.667,
+        "truth": 11.667,
+        "deltaMs": 0
+      },
+      {
+        "found": 12.4,
+        "truth": 12.4,
+        "deltaMs": 0
+      },
+      {
+        "found": 13.367,
+        "truth": 13.367,
+        "deltaMs": 0
+      },
+      {
+        "found": 13.933,
+        "truth": 13.933,
+        "deltaMs": 0
+      },
+      {
+        "found": 14.9,
+        "truth": 14.9,
+        "deltaMs": 0
+      },
+      {
+        "found": 15.467,
+        "truth": 15.467,
+        "deltaMs": 0
+      },
+      {
+        "found": 16.2,
+        "truth": 16.2,
+        "deltaMs": 0
+      },
+      {
+        "found": 17.167,
+        "truth": 17.167,
+        "deltaMs": 0
+      },
+      {
+        "found": 17.8,
+        "truth": 17.8,
+        "deltaMs": 0
+      },
+      {
+        "found": 18.467,
+        "truth": 18.467,
+        "deltaMs": 0
+      },
+      {
+        "found": 19.067,
+        "truth": 19.067,
+        "deltaMs": 0
+      }
+    ],
+    "f1_tight_250ms": 1,
+    "matchedCuts_tight": 24,
+    "cutsTruthCount": 24,
+    "manifestChars": 930,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\B_montage_360p.mp4\" duration=\"20.00\" window=\"0.00-20.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"24 (avg 0.8s)\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cut points (24): 00:01.07, 00:01.90, 00:02.80, 00:03.83, 00:04.67, 00:05.60, 00:06.60, 00:07.20, 00:07.80, 00:08.43, 00:09.03, 00:10.07, 00:11.10, 00:11.67, 00:12.40, 00:13.37, 00:13.93, 00:14.90, 00:15.47, 00:16.20, 00:17.17, 00:17.80, 00:18.47, 00:19.07",
+      "cell 1 (r1c1) = 00:00.00-00:05.60 frame@00:05.35  cuts 5",
+      "cell 2 (r1c2) = 00:05.60-00:10.07 frame@00:09.82  cuts 6"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\B_montage_360p.mp4\" duration=\"20.00\" window=\"0.00-20.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"24 (avg 0.8s)\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 599,
+    "scoreSummary": {
+      "p50": 0.19,
+      "p90": 0.33,
+      "p95": 0.36,
+      "p99": 65.95,
+      "max": 67.94,
+      "frames": 599
+    },
+    "durationS": 20,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "20s、25 个镜头 → 4 帧足够概览",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "C_slowpan_720p",
+    "file": "bench/corpus/C_slowpan_720p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [],
+    "error": null,
+    "wallMs": 1182,
+    "wallMsWarm": {
+      "reps": [
+        1180,
+        1184,
+        1191,
+        1157
+      ],
+      "median": 1182,
+      "min": 1157,
+      "max": 1191
+    },
+    "wallMsSecondCall": 1180,
+    "wallMsCold": 1606,
+    "scanMsCold": 305,
+    "scanProgressCallsCold": 743,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 744,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 301415,
+    "sheetWidth": 1066,
+    "sheetHeight": 600,
+    "sheetAspect": 1.777,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 527,
+    "cellH": 294,
+    "visionTokens": 407,
+    "visionTokensDetail": {
+      "gridW": 26,
+      "gridH": 15,
+      "raw": 407,
+      "tokens": 407,
+      "fedW": 1066,
+      "fedH": 600,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/C_slowpan_720p.png",
+        "width": 1066,
+        "height": 600,
+        "declaredWidth": 1066,
+        "declaredHeight": 600,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 527,
+        "cellH": 294,
+        "stripH": 0,
+        "pngBytes": 301415,
+        "pngBytesOnDisk": 301415,
+        "visionTokens": 407,
+        "tokenDetail": {
+          "gridW": 26,
+          "gridH": 15,
+          "raw": 407,
+          "tokens": 407,
+          "fedW": 1066,
+          "fedH": 600,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+        },
+        "pngSha256": "050d264b6c2b33d8",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 7.5,
+            "frame": 0.25,
+            "cuts": null
+          },
+          {
+            "i": 2,
+            "start": 7.5,
+            "end": 15,
+            "frame": 7.75,
+            "cuts": null
+          },
+          {
+            "i": 3,
+            "start": 15,
+            "end": 22.5,
+            "frame": 15.25,
+            "cuts": null
+          },
+          {
+            "i": 4,
+            "start": 22.5,
+            "end": 30,
+            "frame": 22.75,
+            "cuts": null
+          }
+        ]
+      }
+    ],
+    "cutsFound": [],
+    "matchedCuts": 0,
+    "falseCuts": 0,
+    "missedCuts": 0,
+    "f1": 1,
+    "precision": 1,
+    "recall": 1,
+    "matchPairs": [],
+    "f1_tight_250ms": 1,
+    "matchedCuts_tight": 0,
+    "cutsTruthCount": 0,
+    "manifestChars": 621,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\C_slowpan_720p.mp4\" duration=\"30.00\" window=\"0.00-30.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cell 1 (r1c1) = 00:00.00-00:07.50 frame@00:00.25",
+      "cell 2 (r1c2) = 00:07.50-00:15.00 frame@00:07.75",
+      "cell 3 (r2c1) = 00:15.00-00:22.50 frame@00:15.25"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\C_slowpan_720p.mp4\" duration=\"30.00\" window=\"0.00-30.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 749,
+    "scoreSummary": {
+      "p50": 0.42,
+      "p90": 0.51,
+      "p95": 0.53,
+      "p99": 0.58,
+      "max": 0.68,
+      "frames": 749
+    },
+    "durationS": 30,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "单镜头 0.5min → 视觉切分无用；建议配合台词，或直接用 zoom 看某几秒",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "D_slideshow_720p",
+    "file": "bench/corpus/D_slideshow_720p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [
+      6,
+      12,
+      18,
+      24,
+      30
+    ],
+    "error": null,
+    "wallMs": 1223,
+    "wallMsWarm": {
+      "reps": [
+        1214,
+        1288,
+        1232,
+        1208
+      ],
+      "median": 1223,
+      "min": 1208,
+      "max": 1288
+    },
+    "wallMsSecondCall": 1214,
+    "wallMsCold": 1610,
+    "scanMsCold": 319,
+    "scanProgressCallsCold": 856,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 775,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 174384,
+    "sheetWidth": 1066,
+    "sheetHeight": 600,
+    "sheetAspect": 1.777,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 527,
+    "cellH": 294,
+    "visionTokens": 407,
+    "visionTokensDetail": {
+      "gridW": 26,
+      "gridH": 15,
+      "raw": 407,
+      "tokens": 407,
+      "fedW": 1066,
+      "fedH": 600,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/D_slideshow_720p.png",
+        "width": 1066,
+        "height": 600,
+        "declaredWidth": 1066,
+        "declaredHeight": 600,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 527,
+        "cellH": 294,
+        "stripH": 0,
+        "pngBytes": 174384,
+        "pngBytesOnDisk": 174384,
+        "visionTokens": 407,
+        "tokenDetail": {
+          "gridW": 26,
+          "gridH": 15,
+          "raw": 407,
+          "tokens": 407,
+          "fedW": 1066,
+          "fedH": 600,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+        },
+        "pngSha256": "cf875abc69d58ec2",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 9,
+            "frame": 4.5,
+            "cuts": null
+          },
+          {
+            "i": 2,
+            "start": 9,
+            "end": 18,
+            "frame": 17.75,
+            "cuts": null
+          },
+          {
+            "i": 3,
+            "start": 18,
+            "end": 27,
+            "frame": 18.25,
+            "cuts": null
+          },
+          {
+            "i": 4,
+            "start": 27,
+            "end": 36,
+            "frame": 31.5,
+            "cuts": null
+          }
+        ]
+      }
+    ],
+    "cutsFound": [],
+    "matchedCuts": 0,
+    "falseCuts": 0,
+    "missedCuts": 5,
+    "f1": 0,
+    "precision": 1,
+    "recall": 0,
+    "matchPairs": [],
+    "f1_tight_250ms": 0,
+    "matchedCuts_tight": 0,
+    "cutsTruthCount": 5,
+    "manifestChars": 623,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\D_slideshow_720p.mp4\" duration=\"36.00\" window=\"0.00-36.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cell 1 (r1c1) = 00:00.00-00:09.00 frame@00:04.50",
+      "cell 2 (r1c2) = 00:09.00-00:18.00 frame@00:17.75",
+      "cell 3 (r2c1) = 00:18.00-00:27.00 frame@00:18.25"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\D_slideshow_720p.mp4\" duration=\"36.00\" window=\"0.00-36.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 863,
+    "scoreSummary": {
+      "p50": 0,
+      "p90": 0,
+      "p95": 0.01,
+      "p99": 0.03,
+      "max": 11.66,
+      "frames": 863
+    },
+    "durationS": 36,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "单镜头 0.6min → 视觉切分无用；建议配合台词，或直接用 zoom 看某几秒",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "E_blurtransition_720p",
+    "file": "bench/corpus/E_blurtransition_720p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [],
+    "error": null,
+    "wallMs": 1291,
+    "wallMsWarm": {
+      "reps": [
+        1325,
+        1290,
+        1211,
+        1292
+      ],
+      "median": 1291,
+      "min": 1211,
+      "max": 1325
+    },
+    "wallMsSecondCall": 1325,
+    "wallMsCold": 1486,
+    "scanMsCold": 128,
+    "scanProgressCallsCold": 329,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 835,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 53447,
+    "sheetWidth": 1066,
+    "sheetHeight": 600,
+    "sheetAspect": 1.777,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 527,
+    "cellH": 294,
+    "visionTokens": 407,
+    "visionTokensDetail": {
+      "gridW": 26,
+      "gridH": 15,
+      "raw": 407,
+      "tokens": 407,
+      "fedW": 1066,
+      "fedH": 600,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/E_blurtransition_720p.png",
+        "width": 1066,
+        "height": 600,
+        "declaredWidth": 1066,
+        "declaredHeight": 600,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 527,
+        "cellH": 294,
+        "stripH": 0,
+        "pngBytes": 53447,
+        "pngBytesOnDisk": 53447,
+        "visionTokens": 407,
+        "tokenDetail": {
+          "gridW": 26,
+          "gridH": 15,
+          "raw": 407,
+          "tokens": 407,
+          "fedW": 1066,
+          "fedH": 600,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+        },
+        "pngSha256": "16dadc1a51e50e12",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 2.75,
+            "frame": 2.5,
+            "cuts": null
+          },
+          {
+            "i": 2,
+            "start": 2.75,
+            "end": 5.5,
+            "frame": 4.125,
+            "cuts": null
+          },
+          {
+            "i": 3,
+            "start": 5.5,
+            "end": 8.25,
+            "frame": 6.875,
+            "cuts": null
+          },
+          {
+            "i": 4,
+            "start": 8.25,
+            "end": 11,
+            "frame": 9.625,
+            "cuts": null
+          }
+        ]
+      }
+    ],
+    "cutsFound": [],
+    "matchedCuts": 0,
+    "falseCuts": 0,
+    "missedCuts": 0,
+    "f1": 1,
+    "precision": 1,
+    "recall": 1,
+    "matchPairs": [],
+    "f1_tight_250ms": 1,
+    "matchedCuts_tight": 0,
+    "cutsTruthCount": 0,
+    "manifestChars": 628,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\E_blurtransition_720p.mp4\" duration=\"11.00\" window=\"0.00-11.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cell 1 (r1c1) = 00:00.00-00:02.75 frame@00:02.50",
+      "cell 2 (r1c2) = 00:02.75-00:05.50 frame@00:04.13",
+      "cell 3 (r2c1) = 00:05.50-00:08.25 frame@00:06.88"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\E_blurtransition_720p.mp4\" duration=\"11.00\" window=\"0.00-11.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 329,
+    "scoreSummary": {
+      "p50": 0,
+      "p90": 0.03,
+      "p95": 5.12,
+      "p99": 7.08,
+      "max": 8.01,
+      "frames": 329
+    },
+    "durationS": 11,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "单镜头 0.2min → 视觉切分无用；建议配合台词，或直接用 zoom 看某几秒",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "F_flicker_360p",
+    "file": "bench/corpus/F_flicker_360p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [],
+    "error": null,
+    "wallMs": 1055,
+    "wallMsWarm": {
+      "reps": [
+        1055,
+        1034,
+        1054,
+        1088
+      ],
+      "median": 1055,
+      "min": 1034,
+      "max": 1088
+    },
+    "wallMsSecondCall": 1055,
+    "wallMsCold": 1367,
+    "scanMsCold": 104,
+    "scanProgressCallsCold": 684,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 674,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 182830,
+    "sheetWidth": 1066,
+    "sheetHeight": 600,
+    "sheetAspect": 1.777,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 527,
+    "cellH": 294,
+    "visionTokens": 407,
+    "visionTokensDetail": {
+      "gridW": 26,
+      "gridH": 15,
+      "raw": 407,
+      "tokens": 407,
+      "fedW": 1066,
+      "fedH": 600,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/F_flicker_360p.png",
+        "width": 1066,
+        "height": 600,
+        "declaredWidth": 1066,
+        "declaredHeight": 600,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 527,
+        "cellH": 294,
+        "stripH": 0,
+        "pngBytes": 182830,
+        "pngBytesOnDisk": 182830,
+        "visionTokens": 407,
+        "tokenDetail": {
+          "gridW": 26,
+          "gridH": 15,
+          "raw": 407,
+          "tokens": 407,
+          "fedW": 1066,
+          "fedH": 600,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(26+1)+2"
+        },
+        "pngSha256": "14aa71a49329569c",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 5.6,
+            "frame": 2.8,
+            "cuts": 2
+          },
+          {
+            "i": 2,
+            "start": 5.6,
+            "end": 11.1,
+            "frame": 10.85,
+            "cuts": 3
+          },
+          {
+            "i": 3,
+            "start": 11.1,
+            "end": 17.333,
+            "frame": 17.083,
+            "cuts": 3
+          },
+          {
+            "i": 4,
+            "start": 17.333,
+            "end": 24,
+            "frame": 17.583,
+            "cuts": 4
+          }
+        ]
+      }
+    ],
+    "cutsFound": [
+      1.633,
+      3.533,
+      5.6,
+      7.133,
+      9.6,
+      11.1,
+      13.533,
+      15.4,
+      17.333,
+      19.2,
+      21.3,
+      23.033
+    ],
+    "matchedCuts": 0,
+    "falseCuts": 12,
+    "missedCuts": 0,
+    "f1": 0,
+    "precision": 0,
+    "recall": 1,
+    "matchPairs": [],
+    "f1_tight_250ms": 0,
+    "matchedCuts_tight": 0,
+    "cutsTruthCount": 0,
+    "manifestChars": 810,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\F_flicker_360p.mp4\" duration=\"24.00\" window=\"0.00-24.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"12 (avg 2.0s)\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cut points (12): 00:01.63, 00:03.53, 00:05.60, 00:07.13, 00:09.60, 00:11.10, 00:13.53, 00:15.40, 00:17.33, 00:19.20, 00:21.30, 00:23.03",
+      "cell 1 (r1c1) = 00:00.00-00:05.60 frame@00:02.80  cuts 2",
+      "cell 2 (r1c2) = 00:05.60-00:11.10 frame@00:10.85  cuts 3"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\F_flicker_360p.mp4\" duration=\"24.00\" window=\"0.00-24.00\" image=\"1066x600\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"12 (avg 2.0s)\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 719,
+    "scoreSummary": {
+      "p50": 2.16,
+      "p90": 3.16,
+      "p95": 3.63,
+      "p99": 95.52,
+      "max": 99.94,
+      "frames": 719
+    },
+    "durationS": 24,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "24s、13 个镜头 → 4 帧足够概览",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "G_speech_360p",
+    "file": "bench/corpus/G_speech_360p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [],
+    "error": null,
+    "wallMs": 1257,
+    "wallMsWarm": {
+      "reps": [
+        1531,
+        1287,
+        1221,
+        1227
+      ],
+      "median": 1257,
+      "min": 1221,
+      "max": 1531
+    },
+    "wallMsSecondCall": 1531,
+    "wallMsCold": 1577,
+    "scanMsCold": 81,
+    "scanProgressCallsCold": 423,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 842,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 102586,
+    "sheetWidth": 1010,
+    "sheetHeight": 624,
+    "sheetAspect": 1.619,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 499,
+    "cellH": 278,
+    "visionTokens": 392,
+    "visionTokensDetail": {
+      "gridW": 25,
+      "gridH": 15,
+      "raw": 392,
+      "tokens": 392,
+      "fedW": 1010,
+      "fedH": 624,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(25+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/G_speech_360p.png",
+        "width": 1010,
+        "height": 624,
+        "declaredWidth": 1010,
+        "declaredHeight": 624,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 499,
+        "cellH": 278,
+        "stripH": 56,
+        "pngBytes": 102586,
+        "pngBytesOnDisk": 102586,
+        "visionTokens": 392,
+        "tokenDetail": {
+          "gridW": 25,
+          "gridH": 15,
+          "raw": 392,
+          "tokens": 392,
+          "fedW": 1010,
+          "fedH": 624,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(25+1)+2"
+        },
+        "pngSha256": "b822be884e7bdea6",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 4.333,
+            "frame": 2.167,
+            "cuts": 1
+          },
+          {
+            "i": 2,
+            "start": 4.333,
+            "end": 10.067,
+            "frame": 7.2,
+            "cuts": 2
+          },
+          {
+            "i": 3,
+            "start": 10.067,
+            "end": 15.2,
+            "frame": 12.633,
+            "cuts": 2
+          },
+          {
+            "i": 4,
+            "start": 15.2,
+            "end": 22.067,
+            "frame": 18.633,
+            "cuts": 3
+          }
+        ]
+      }
+    ],
+    "cutsFound": [
+      1,
+      4.333,
+      6.033,
+      10.067,
+      11.867,
+      15.2,
+      16.6,
+      20.067
+    ],
+    "matchedCuts": 0,
+    "falseCuts": 8,
+    "missedCuts": 0,
+    "f1": 0,
+    "precision": 0,
+    "recall": 1,
+    "matchPairs": [],
+    "f1_tight_250ms": 0,
+    "matchedCuts_tight": 0,
+    "cutsTruthCount": 0,
+    "manifestChars": 1077,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\G_speech_360p.mp4\" duration=\"22.07\" window=\"0.00-22.07\" image=\"1010x624\" grid=\"4 cells x 1 image(s)\" burn=\"index\" footer=\"audio-strip(56px)\" cuts=\"8 (avg 2.8s)\">",
+      "footer strip shares the timeline: teal bars = loudness (taller = louder), grey blocks = silence, yellow ticks = cut points.",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "cut points (8): 00:01.00, 00:04.33, 00:06.03, 00:10.07, 00:11.87, 00:15.20, 00:16.60, 00:20.07",
+      "audio events (5): 00:01.10 +30dB, 00:03.90 -30dB, 00:07.60 -30dB, 00:10.60 -30dB, 00:13.70 -30dB — the picture may be static here; the change is in the sound."
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\G_speech_360p.mp4\" duration=\"22.07\" window=\"0.00-22.07\" image=\"1010x624\" grid=\"4 cells x 1 image(s)\" burn=\"index\" footer=\"audio-strip(56px)\" cuts=\"8 (avg 2.8s)\">",
+    "manifestCellLines": 4,
+    "hasAudio": true,
+    "audioStripH": 56,
+    "audioStripApplied": true,
+    "threshold": 12,
+    "scanFrames": 661,
+    "scoreSummary": {
+      "p50": 0.03,
+      "p90": 1.17,
+      "p95": 1.9,
+      "p99": 28.26,
+      "max": 28.76,
+      "frames": 661
+    },
+    "durationS": 22.067,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "22s、9 个镜头 → 4 帧足够概览",
+      "bursts": 0
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "H_music_360p",
+    "file": "bench/corpus/H_music_360p.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [],
+    "error": null,
+    "wallMs": 1212,
+    "wallMsWarm": {
+      "reps": [
+        1204,
+        1192,
+        1238,
+        1219
+      ],
+      "median": 1212,
+      "min": 1192,
+      "max": 1238
+    },
+    "wallMsSecondCall": 1204,
+    "wallMsCold": 1562,
+    "scanMsCold": 93,
+    "scanProgressCallsCold": 436,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 794,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 156329,
+    "sheetWidth": 1010,
+    "sheetHeight": 624,
+    "sheetAspect": 1.619,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 499,
+    "cellH": 278,
+    "visionTokens": 392,
+    "visionTokensDetail": {
+      "gridW": 25,
+      "gridH": 15,
+      "raw": 392,
+      "tokens": 392,
+      "fedW": 1010,
+      "fedH": 624,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 15*(25+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/H_music_360p.png",
+        "width": 1010,
+        "height": 624,
+        "declaredWidth": 1010,
+        "declaredHeight": 624,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 499,
+        "cellH": 278,
+        "stripH": 56,
+        "pngBytes": 156329,
+        "pngBytesOnDisk": 156329,
+        "visionTokens": 392,
+        "tokenDetail": {
+          "gridW": 25,
+          "gridH": 15,
+          "raw": 392,
+          "tokens": 392,
+          "fedW": 1010,
+          "fedH": 624,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 15*(25+1)+2"
+        },
+        "pngSha256": "556efadd3053d7ab",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 8,
+            "frame": 7.75,
+            "cuts": null
+          },
+          {
+            "i": 2,
+            "start": 8,
+            "end": 16,
+            "frame": 8.25,
+            "cuts": 1
+          },
+          {
+            "i": 3,
+            "start": 16,
+            "end": 24,
+            "frame": 20,
+            "cuts": 1
+          },
+          {
+            "i": 4,
+            "start": 24,
+            "end": 30,
+            "frame": 24.25,
+            "cuts": 1
+          }
+        ]
+      }
+    ],
+    "cutsFound": [
+      8,
+      16,
+      24
+    ],
+    "matchedCuts": 0,
+    "falseCuts": 3,
+    "missedCuts": 0,
+    "f1": 0,
+    "precision": 0,
+    "recall": 1,
+    "matchPairs": [],
+    "f1_tight_250ms": 0,
+    "matchedCuts_tight": 0,
+    "cutsTruthCount": 0,
+    "manifestChars": 1188,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\H_music_360p.mp4\" duration=\"30.00\" window=\"0.00-30.00\" image=\"1010x624\" grid=\"4 cells x 1 image(s)\" burn=\"index\" footer=\"audio-strip(56px)\" cuts=\"3 (avg 10.0s)\">",
+      "footer strip shares the timeline: teal bars = loudness (taller = louder), grey blocks = silence, yellow ticks = cut points.",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "fast cuts: 00:06.40-00:09.70 (1 shots), 00:14.40-00:17.70 (1 shots), 00:22.40-00:25.70 (1 shots) — video_zoom({ from, to, cells: 6, minGap: 0.4 }) splits these into single shots.",
+      "cut points (3): 00:08.00, 00:16.00, 00:24.00"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\H_music_360p.mp4\" duration=\"30.00\" window=\"0.00-30.00\" image=\"1010x624\" grid=\"4 cells x 1 image(s)\" burn=\"index\" footer=\"audio-strip(56px)\" cuts=\"3 (avg 10.0s)\">",
+    "manifestCellLines": 4,
+    "hasAudio": true,
+    "audioStripH": 56,
+    "audioStripApplied": true,
+    "threshold": 12,
+    "scanFrames": 719,
+    "scoreSummary": {
+      "p50": 0.12,
+      "p90": 0.26,
+      "p95": 0.3,
+      "p99": 0.48,
+      "max": 52.63,
+      "frames": 719
+    },
+    "durationS": 30,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "30s、4 个镜头 → 4 帧足够概览",
+      "bursts": 3
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  },
+  {
+    "clip": "I_portrait_interlaced",
+    "file": "bench/corpus/I_portrait_interlaced.mp4",
+    "ok": true,
+    "cutTolerance": 0.5,
+    "cutsTruth": [
+      6,
+      12,
+      17
+    ],
+    "error": null,
+    "wallMs": 1169,
+    "wallMsWarm": {
+      "reps": [
+        1324,
+        1224,
+        1114,
+        1074
+      ],
+      "median": 1169,
+      "min": 1074,
+      "max": 1324
+    },
+    "wallMsSecondCall": 1324,
+    "wallMsCold": 1425,
+    "scanMsCold": 116,
+    "scanProgressCallsCold": 542,
+    "scanProgressCallsWarm": 0,
+    "diagPickMid": {
+      "warmMs": 623,
+      "cells": 4,
+      "pick": "mid"
+    },
+    "sheetCount": 1,
+    "sheetPngBytes": 103395,
+    "sheetWidth": 600,
+    "sheetHeight": 1064,
+    "sheetAspect": 0.564,
+    "grid": {
+      "cols": 2,
+      "rows": 2
+    },
+    "gridSlots": 4,
+    "cellCount": 4,
+    "cellW": 294,
+    "cellH": 526,
+    "visionTokens": 418,
+    "visionTokensDetail": {
+      "gridW": 15,
+      "gridH": 26,
+      "raw": 418,
+      "tokens": 418,
+      "fedW": 600,
+      "fedH": 1064,
+      "upscaled": false,
+      "formula": "gridH*(gridW+1)+2 = 26*(15+1)+2"
+    },
+    "sheets": [
+      {
+        "index": 1,
+        "path": "bench/ab/upstream-sheets/I_portrait_interlaced.png",
+        "width": 600,
+        "height": 1064,
+        "declaredWidth": 600,
+        "declaredHeight": 1064,
+        "dimsMatchDeclared": true,
+        "cols": 2,
+        "rows": 2,
+        "slots": 4,
+        "cells": 4,
+        "cellW": 294,
+        "cellH": 526,
+        "stripH": 0,
+        "pngBytes": 103395,
+        "pngBytesOnDisk": 103395,
+        "visionTokens": 418,
+        "tokenDetail": {
+          "gridW": 15,
+          "gridH": 26,
+          "raw": 418,
+          "tokens": 418,
+          "fedW": 600,
+          "fedH": 1064,
+          "upscaled": false,
+          "formula": "gridH*(gridW+1)+2 = 26*(15+1)+2"
+        },
+        "pngSha256": "c1308f5ccac3b034",
+        "cellRanges": [
+          {
+            "i": 1,
+            "start": 0,
+            "end": 6,
+            "frame": 0.25,
+            "cuts": null
+          },
+          {
+            "i": 2,
+            "start": 6,
+            "end": 12,
+            "frame": 6.25,
+            "cuts": 1
+          },
+          {
+            "i": 3,
+            "start": 12,
+            "end": 17,
+            "frame": 16.75,
+            "cuts": 1
+          },
+          {
+            "i": 4,
+            "start": 17,
+            "end": 22,
+            "frame": 21.75,
+            "cuts": 1
+          }
+        ]
+      }
+    ],
+    "cutsFound": [
+      6,
+      12,
+      17
+    ],
+    "matchedCuts": 3,
+    "falseCuts": 0,
+    "missedCuts": 0,
+    "f1": 1,
+    "precision": 1,
+    "recall": 1,
+    "matchPairs": [
+      {
+        "found": 6,
+        "truth": 6,
+        "deltaMs": 0
+      },
+      {
+        "found": 12,
+        "truth": 12,
+        "deltaMs": 0
+      },
+      {
+        "found": 17,
+        "truth": 17,
+        "deltaMs": 0
+      }
+    ],
+    "f1_tight_250ms": 1,
+    "matchedCuts_tight": 3,
+    "cutsTruthCount": 3,
+    "manifestChars": 896,
+    "manifestSample": [
+      "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\I_portrait_interlaced.mp4\" duration=\"22.00\" window=\"0.00-22.00\" image=\"600x1064\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"3 (avg 7.3s)\">",
+      "frame@ = the exact moment the cell's picture was taken (sharpest of 3 candidates), which is NOT the cell start — a title card showing at frame@ belongs to a cell that begins earlier.",
+      "fast cuts: 00:05.30-00:06.80 (1 shots), 00:11.30-00:12.80 (1 shots), 00:16.30-00:17.80 (1 shots) — video_zoom({ from, to, cells: 6, minGap: 0.4 }) splits these into single shots.",
+      "cut points (3): 00:06.00, 00:12.00, 00:17.00",
+      "cell 1 (r1c1) = 00:00.00-00:06.00 frame@00:00.25"
+    ],
+    "manifestHeader": "<storyboard path=\"F:\\ai\\v4video\\bench\\corpus\\I_portrait_interlaced.mp4\" duration=\"22.00\" window=\"0.00-22.00\" image=\"600x1064\" grid=\"4 cells x 1 image(s)\" burn=\"index\" cuts=\"3 (avg 7.3s)\">",
+    "manifestCellLines": 4,
+    "hasAudio": false,
+    "audioStripH": 0,
+    "audioStripApplied": false,
+    "threshold": 12,
+    "scanFrames": 549,
+    "scoreSummary": {
+      "p50": 1.33,
+      "p90": 1.55,
+      "p95": 1.68,
+      "p99": 1.77,
+      "max": 60.72,
+      "frames": 549
+    },
+    "durationS": 22,
+    "plan": {
+      "cells": 4,
+      "sheets": 1,
+      "adaptive": true,
+      "pick": "sharp",
+      "burn": "index",
+      "minGap": 1.2,
+      "reason": "22s、4 个镜头 → 4 帧足够概览",
+      "bursts": 3
+    },
+    "degraded": null,
+    "cachedCold": false,
+    "cachedWarm": true,
+    "pngStableColdVsWarm": true,
+    "transcriptDisabled": true,
+    "networkUsed": false,
+    "cacheDirEntries": 2,
+    "note": "Upstream driven through src/pipeline.js runStoryboard() with the video_storyboard tool defaults (pick=sharp, burn=index, minGap=1.2, cells/sheets/to auto, detail=med) and one deviation: transcript:'off' (host default 'auto') so the remote ASR service is never contacted. Input is a local path, so resolveInput() returns it unchanged (src/fetch.js:753-757): no yt-dlp, no HTTP; DSH_YTDLP_PATH points at a non-existent file. wallMs = median of 4 warm calls (cache populated); wallMsCold = first ever call after deleting the cache dir. Cut matching: greedy nearest pairing, 0.5 s tolerance (f1_tight_250ms uses 0.25 s)."
+  }
+]

@@ -1,0 +1,198 @@
+/**
+ * tools.js — the three tool specs.
+ *
+ * These descriptions live in the system prompt, so they are paid on *every*
+ * request. That is why the reading instructions live here instead of in the
+ * manifest: a cached description is ~free, while a repeated paragraph inside
+ * every tool result is not. Keep this file short and concrete.
+ */
+
+import { runProbe } from './pipeline.js';
+
+export const PROBE_TOOL = 'video_probe';
+export const STORYBOARD_TOOL = 'video_storyboard';
+export const ZOOM_TOOL = 'video_zoom';
+
+const INPUT_DESC = 'Path to a video file (absolute, or relative to the working directory). A direct http(s) URL to a media file also works when ffmpeg can fetch it; a site page (YouTube, Bilibili) must be downloaded first, because resolving one needs a downloader this plugin does not ship.';
+
+export function probeSpec() {
+  return {
+    name: PROBE_TOOL,
+    description: [
+      'Read a video\'s container metadata without decoding any frames: duration, resolution, frame rate,',
+      'rotation, audio and subtitle tracks, a reading plan, and an estimate of what a storyboard will cost.',
+      '',
+      'Call this first when you do not know how long the video is — it is nearly free and tells you whether',
+      'one storyboard covers the whole thing or you need to pick a window.',
+    ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        input: { type: 'string', description: INPUT_DESC },
+      },
+      required: ['input'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          text: { type: 'string', description: 'Human-readable metadata and reading plan.' },
+        },
+      },
+      render(args, value) {
+        return [{ type: 'text', text: value.text }];
+      },
+    },
+    timeoutMs: 120_000,
+    isConcurrencySafe: () => true,
+    presentCall: (args) => ({ card: 'generic', title: 'probe video', kind: 'read', rawInput: args }),
+    async execute(args, exec) {
+      if (!args?.input) throw new Error('input is required');
+      const out = await runProbe({ input: args.input, signal: exec?.signal });
+      return { text: out.text };
+    },
+  };
+}
+
+export function storyboardSpec(ctx) {
+  return {
+    name: STORYBOARD_TOOL,
+    description: [
+      'Watch a video by looking at it: samples the whole file (or a window of it) and returns ONE contact',
+      'sheet whose cells are automatically placed on the cuts, plus a text index that binds every cell to a',
+      'timecode. This is how you answer questions about content, shot composition, on-screen text, action,',
+      'pacing and continuity.',
+      '',
+      'How to read the result:',
+      '  - `cols:` line names the columns; each cell line is `N rXcY start-end (cuts) @frame · "dialogue"`.',
+      '  - `r1c2` is row 1, column 2 of the image, counted from the top-left. The number burned into the',
+      '    cell is the cell index N.',
+      '  - The picture shows *what*; the text gives *when*, how many cuts land inside the cell, and any',
+      '    dialogue the file carries. A cell marked `=cell 2` is a picture already shown in cell 2 — it is',
+      '    listed for timing, not redrawn.',
+      '  - Audio line: speech share, loudness, loudest moment, silences, onsets. Read limits: `subtitlePx`',
+      '    under ~13 means small burned-in subtitles will be hard to read, so use video_zoom on the window.',
+      '',
+      'Cost: the sheet is billed by pixels (about 600-1000 tokens for a full frame of cells). Cells are',
+      'deduplicated, so a static talking head does not spend a frame per second.',
+      '',
+      'Use `detail` to trade coverage against per-cell sharpness, `cells` to force a count, `textOnly` to',
+      're-read the index of a long film at no image cost, and video_zoom when one window needs real detail.',
+      'Re-calling the same window is cached: the text index is free, so paging with `textOnly` + `cellRange`',
+      'or asking for one window at a time is the intended way to work through a long file.',
+    ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        input: { type: 'string', description: INPUT_DESC },
+        start: { type: 'number', description: 'Window start in seconds (default 0).' },
+        end: { type: 'number', description: 'Window end in seconds (default: end of file).' },
+        duration: { type: 'number', description: 'Window length in seconds; alternative to `end`.' },
+        detail: {
+          type: 'string',
+          enum: ['low', 'auto', 'high'],
+          description: 'low = up to 6 cells, for a quick overview. auto = default, up to 20 cells sized by content. '
+            + 'high = up to 28 cells for dense edits or long films. The sheet keeps a roughly constant token cost per '
+            + 'cell, so more cells means more moments at a smaller size — pick high when you need coverage, low when '
+            + 'you need a big readable picture of a few moments.',
+        },
+        cells: { type: 'number', description: 'Force an exact cell count (1-24). Overrides `detail`.' },
+        pick: {
+          type: 'string',
+          enum: ['sharp', 'middle'],
+          description: 'Which frame inside a shot becomes its cell. `sharp` (default) takes the crispest moment, '
+            + 'which avoids motion-blurred and mid-transition frames.',
+        },
+        textOnly: { type: 'boolean', description: 'Return only the text index; no image, no frame decode. Cheap paging for long films.' },
+        cellRange: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'With textOnly: [first, last] 1-based cell indices to list.',
+        },
+      },
+      required: ['input'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          text: { type: 'string', description: 'The addressable cell index.' },
+          images: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'Contact sheet images (0 or 1).' },
+        },
+      },
+      render(args, value) {
+        const blocks = [];
+        for (const attachment of value.images || []) blocks.push({ type: 'image', attachment });
+        blocks.push({ type: 'text', text: value.text });
+        return blocks;
+      },
+    },
+    timeoutMs: 900_000,
+    isConcurrencySafe: () => true,
+    presentCall: (args) => ({ card: 'generic', title: 'storyboard', kind: 'read', rawInput: args }),
+    async execute(args, exec) {
+      if (!args?.input) throw new Error('input is required');
+      return ctx.storyboard(args, exec);
+    },
+  };
+}
+
+export function zoomSpec(ctx) {
+  return {
+    name: ZOOM_TOOL,
+    description: [
+      'Look closely at a short window of a video: a few large cells (default 3), or one full frame when',
+      '`cells` is 1. Use it after video_storyboard when a single moment needs real detail — reading',
+      'on-screen text, identifying a face, judging an effect, checking what an object actually is.',
+      '',
+      'The window should be short (a few seconds to ~20 s): the point is per-cell pixels, not coverage.',
+      'Cells are still placed on cuts inside the window, so a 3-cell zoom over a 6 s ACTION BEAT shows',
+      'three distinct shots rather than three near-identical frames.',
+    ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        input: { type: 'string', description: INPUT_DESC },
+        start: { type: 'number', description: 'Window start in seconds.' },
+        end: { type: 'number', description: 'Window end in seconds.' },
+        duration: { type: 'number', description: 'Window length in seconds (default 20).' },
+        cells: { type: 'number', description: 'Cells to return, 1-9 (default 3). 1 returns a single full-resolution frame.' },
+        at: { type: 'number', description: 'With cells=1: exact timestamp to grab (default: middle of the window).' },
+        detail: {
+          type: 'string',
+          enum: ['high', 'ultra'],
+          description: 'Pixel budget. `ultra` (default) spends the full per-image token allowance on fewer, larger cells.',
+        },
+      },
+      required: ['input'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          text: { type: 'string', description: 'What each cell is and when.' },
+          images: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'Zoom images (exactly 1).' },
+        },
+      },
+      render(args, value) {
+        const blocks = [];
+        for (const attachment of value.images || []) blocks.push({ type: 'image', attachment });
+        blocks.push({ type: 'text', text: value.text });
+        return blocks;
+      },
+    },
+    timeoutMs: 300_000,
+    isConcurrencySafe: () => true,
+    presentCall: (args) => ({ card: 'generic', title: 'zoom', kind: 'read', rawInput: args }),
+    async execute(args, exec) {
+      if (!args?.input) throw new Error('input is required');
+      return ctx.zoom(args, exec);
+    },
+  };
+}

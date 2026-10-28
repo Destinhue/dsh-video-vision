@@ -1,0 +1,1490 @@
+{
+  "schema": "v4video.bench.corpus/1",
+  "generated_utc": "2026-10-28T03:23:25Z",
+  "generator": {
+    "script": "bench/gen/build_corpus.py",
+    "ffmpeg": "F:\\ai\\v4video\\vendor\\bin\\ffmpeg.exe",
+    "ffprobe": "F:\\ai\\v4video\\vendor\\bin\\ffprobe.exe",
+    "ffmpeg_version": "8.0.1-essentials_build-www.gyan.dev"
+  },
+  "clip_count": 9,
+  "total_seconds": 235.067,
+  "total_bytes": 5798293,
+  "total_human": "5.5MB",
+  "clips": [
+    {
+      "name": "A_hardcuts_720p",
+      "file": "corpus/A_hardcuts_720p.mp4",
+      "category": "A_hard_cuts",
+      "duration_s": 40.0,
+      "fps": 30,
+      "width": 1280,
+      "height": 720,
+      "frames": 1200,
+      "n_shots": 10,
+      "n_cuts": 9,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 428278,
+      "poster": "corpus/posters/A_hardcuts_720p.png",
+      "gt_file": "corpus/gt/A_hardcuts_720p.gt.json",
+      "sha256": "a9230450523b90cbb0d8fde10f794321e848e0788eb8945ef4c3fba14c9f1040",
+      "cuts": [
+        4.0,
+        8.0,
+        12.0,
+        16.0,
+        20.0,
+        24.0,
+        28.0,
+        32.0,
+        36.0
+      ],
+      "notes_head": "Ten 4.000s solid-colour shots with a big English label and the cut time burned in. SHOT05 and SHOT06 have deliberately EQUAL mean luma but opposite hue, so a lu",
+      "gt": {
+        "name": "A_hardcuts_720p",
+        "file": "corpus/A_hardcuts_720p.mp4",
+        "category": "A_hard_cuts",
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "frames": 1200,
+        "duration": 40.0,
+        "container_duration": 40.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "SHOT01",
+            "start": 0.0,
+            "end": 4.0,
+            "start_frame": 0,
+            "frames": 120
+          },
+          {
+            "index": 2,
+            "label": "SHOT02",
+            "start": 4.0,
+            "end": 8.0,
+            "start_frame": 120,
+            "frames": 120
+          },
+          {
+            "index": 3,
+            "label": "SHOT03",
+            "start": 8.0,
+            "end": 12.0,
+            "start_frame": 240,
+            "frames": 120
+          },
+          {
+            "index": 4,
+            "label": "SHOT04",
+            "start": 12.0,
+            "end": 16.0,
+            "start_frame": 360,
+            "frames": 120
+          },
+          {
+            "index": 5,
+            "label": "SHOT05",
+            "start": 16.0,
+            "end": 20.0,
+            "start_frame": 480,
+            "frames": 120
+          },
+          {
+            "index": 6,
+            "label": "SHOT06",
+            "start": 20.0,
+            "end": 24.0,
+            "start_frame": 600,
+            "frames": 120
+          },
+          {
+            "index": 7,
+            "label": "SHOT07",
+            "start": 24.0,
+            "end": 28.0,
+            "start_frame": 720,
+            "frames": 120
+          },
+          {
+            "index": 8,
+            "label": "SHOT08",
+            "start": 28.0,
+            "end": 32.0,
+            "start_frame": 840,
+            "frames": 120
+          },
+          {
+            "index": 9,
+            "label": "SHOT09",
+            "start": 32.0,
+            "end": 36.0,
+            "start_frame": 960,
+            "frames": 120
+          },
+          {
+            "index": 10,
+            "label": "SHOT10",
+            "start": 36.0,
+            "end": 40.0,
+            "start_frame": 1080,
+            "frames": 120
+          }
+        ],
+        "cuts": [
+          4.0,
+          8.0,
+          12.0,
+          16.0,
+          20.0,
+          24.0,
+          28.0,
+          32.0,
+          36.0
+        ],
+        "n_shots": 10,
+        "n_cuts": 9,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/A_hardcuts_720p.png",
+        "bytes": 428278,
+        "sha256": "a9230450523b90cbb0d8fde10f794321e848e0788eb8945ef4c3fba14c9f1040",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": null,
+        "notes": "Ten 4.000s solid-colour shots with a big English label and the cut time burned in. SHOT05 and SHOT06 have deliberately EQUAL mean luma but opposite hue, so a luma-difference scene detector should MISS that cut while an HSV/chroma detector should see it. All 9 cuts are hard: no fades, no motion, no audio.",
+        "luma_equal_pair": {
+          "shots": [
+            5,
+            6
+          ],
+          "labels": [
+            "SHOT05",
+            "SHOT06"
+          ],
+          "rgb": [
+            [
+              255,
+              0,
+              0
+            ],
+            [
+              5,
+              63,
+              119
+            ]
+          ],
+          "teal_original_design_rgb": [
+            0,
+            64,
+            117
+          ],
+          "offset_from_design_rgb": [
+            5,
+            -1,
+            2
+          ],
+          "designed_mean_luma_rgb709": [
+            54.213,
+            54.7124
+          ],
+          "measured_yavg_limited_range": {
+            "SHOT05": 75.584,
+            "SHOT06": 75.698
+          },
+          "measured_delta_limited_range": 0.114,
+          "measured_delta_pct_of_range": 0.0521,
+          "threshold_guidance": "Any luma-difference scene detector with a threshold above 0.05% of the 219-code video range must NOT report a cut at t=20.0s. An HSV/chroma detector must report 9 cuts."
+        },
+        "shots_rgb": [
+          [
+            210,
+            35,
+            45
+          ],
+          [
+            30,
+            95,
+            190
+          ],
+          [
+            245,
+            195,
+            45
+          ],
+          [
+            28,
+            28,
+            34
+          ],
+          [
+            255,
+            0,
+            0
+          ],
+          [
+            5,
+            63,
+            119
+          ],
+          [
+            240,
+            240,
+            240
+          ],
+          [
+            20,
+            150,
+            90
+          ],
+          [
+            120,
+            60,
+            160
+          ],
+          [
+            12,
+            12,
+            14
+          ]
+        ],
+        "frames_actual": 1200,
+        "build_seconds": 14.7
+      }
+    },
+    {
+      "name": "B_montage_360p",
+      "file": "corpus/B_montage_360p.mp4",
+      "category": "B_fast_montage",
+      "duration_s": 20.0,
+      "fps": 30,
+      "width": 640,
+      "height": 360,
+      "frames": 600,
+      "n_shots": 25,
+      "n_cuts": 24,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 145613,
+      "poster": "corpus/posters/B_montage_360p.png",
+      "gt_file": "corpus/gt/B_montage_360p.gt.json",
+      "sha256": "a89893a39c19f3d34b9a23062ec0acdcc1e5eb25c2111aff86767ea70aae81e1",
+      "cuts": [
+        1.066667,
+        1.9,
+        2.8,
+        3.833333,
+        4.666667,
+        5.6,
+        6.6,
+        7.2,
+        7.8,
+        8.433333,
+        9.033333,
+        10.066667,
+        11.1,
+        11.666667,
+        12.4,
+        13.366667,
+        13.933333,
+        14.9,
+        15.466667,
+        16.2,
+        17.166667,
+        17.8,
+        18.466667,
+        19.066667
+      ],
+      "notes_head": "25 shots of 0.600-1.500s, 24 cuts in exactly 20.000s. Each shot is a big index label on a distinct hue plus a white progress bar that resets at every cut, so a ",
+      "gt": {
+        "name": "B_montage_360p",
+        "file": "corpus/B_montage_360p.mp4",
+        "category": "B_fast_montage",
+        "width": 640,
+        "height": 360,
+        "fps": 30,
+        "frames": 600,
+        "duration": 20.0,
+        "container_duration": 20.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "M01",
+            "start": 0.0,
+            "end": 1.066667,
+            "start_frame": 0,
+            "frames": 32
+          },
+          {
+            "index": 2,
+            "label": "M02",
+            "start": 1.066667,
+            "end": 1.9,
+            "start_frame": 32,
+            "frames": 25
+          },
+          {
+            "index": 3,
+            "label": "M03",
+            "start": 1.9,
+            "end": 2.8,
+            "start_frame": 57,
+            "frames": 27
+          },
+          {
+            "index": 4,
+            "label": "M04",
+            "start": 2.8,
+            "end": 3.833333,
+            "start_frame": 84,
+            "frames": 31
+          },
+          {
+            "index": 5,
+            "label": "M05",
+            "start": 3.833333,
+            "end": 4.666667,
+            "start_frame": 115,
+            "frames": 25
+          },
+          {
+            "index": 6,
+            "label": "M06",
+            "start": 4.666667,
+            "end": 5.6,
+            "start_frame": 140,
+            "frames": 28
+          },
+          {
+            "index": 7,
+            "label": "M07",
+            "start": 5.6,
+            "end": 6.6,
+            "start_frame": 168,
+            "frames": 30
+          },
+          {
+            "index": 8,
+            "label": "M08",
+            "start": 6.6,
+            "end": 7.2,
+            "start_frame": 198,
+            "frames": 18
+          },
+          {
+            "index": 9,
+            "label": "M09",
+            "start": 7.2,
+            "end": 7.8,
+            "start_frame": 216,
+            "frames": 18
+          },
+          {
+            "index": 10,
+            "label": "M10",
+            "start": 7.8,
+            "end": 8.433333,
+            "start_frame": 234,
+            "frames": 19
+          },
+          {
+            "index": 11,
+            "label": "M11",
+            "start": 8.433333,
+            "end": 9.033333,
+            "start_frame": 253,
+            "frames": 18
+          },
+          {
+            "index": 12,
+            "label": "M12",
+            "start": 9.033333,
+            "end": 10.066667,
+            "start_frame": 271,
+            "frames": 31
+          },
+          {
+            "index": 13,
+            "label": "M13",
+            "start": 10.066667,
+            "end": 11.1,
+            "start_frame": 302,
+            "frames": 31
+          },
+          {
+            "index": 14,
+            "label": "M14",
+            "start": 11.1,
+            "end": 11.666667,
+            "start_frame": 333,
+            "frames": 17
+          },
+          {
+            "index": 15,
+            "label": "M15",
+            "start": 11.666667,
+            "end": 12.4,
+            "start_frame": 350,
+            "frames": 22
+          },
+          {
+            "index": 16,
+            "label": "M16",
+            "start": 12.4,
+            "end": 13.366667,
+            "start_frame": 372,
+            "frames": 29
+          },
+          {
+            "index": 17,
+            "label": "M17",
+            "start": 13.366667,
+            "end": 13.933333,
+            "start_frame": 401,
+            "frames": 17
+          },
+          {
+            "index": 18,
+            "label": "M18",
+            "start": 13.933333,
+            "end": 14.9,
+            "start_frame": 418,
+            "frames": 29
+          },
+          {
+            "index": 19,
+            "label": "M19",
+            "start": 14.9,
+            "end": 15.466667,
+            "start_frame": 447,
+            "frames": 17
+          },
+          {
+            "index": 20,
+            "label": "M20",
+            "start": 15.466667,
+            "end": 16.2,
+            "start_frame": 464,
+            "frames": 22
+          },
+          {
+            "index": 21,
+            "label": "M21",
+            "start": 16.2,
+            "end": 17.166667,
+            "start_frame": 486,
+            "frames": 29
+          },
+          {
+            "index": 22,
+            "label": "M22",
+            "start": 17.166667,
+            "end": 17.8,
+            "start_frame": 515,
+            "frames": 19
+          },
+          {
+            "index": 23,
+            "label": "M23",
+            "start": 17.8,
+            "end": 18.466667,
+            "start_frame": 534,
+            "frames": 20
+          },
+          {
+            "index": 24,
+            "label": "M24",
+            "start": 18.466667,
+            "end": 19.066667,
+            "start_frame": 554,
+            "frames": 18
+          },
+          {
+            "index": 25,
+            "label": "M25",
+            "start": 19.066667,
+            "end": 20.0,
+            "start_frame": 572,
+            "frames": 28
+          }
+        ],
+        "cuts": [
+          1.066667,
+          1.9,
+          2.8,
+          3.833333,
+          4.666667,
+          5.6,
+          6.6,
+          7.2,
+          7.8,
+          8.433333,
+          9.033333,
+          10.066667,
+          11.1,
+          11.666667,
+          12.4,
+          13.366667,
+          13.933333,
+          14.9,
+          15.466667,
+          16.2,
+          17.166667,
+          17.8,
+          18.466667,
+          19.066667
+        ],
+        "n_shots": 25,
+        "n_cuts": 24,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/B_montage_360p.png",
+        "bytes": 145613,
+        "sha256": "a89893a39c19f3d34b9a23062ec0acdcc1e5eb25c2111aff86767ea70aae81e1",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": null,
+        "notes": "25 shots of 0.600-1.500s, 24 cuts in exactly 20.000s. Each shot is a big index label on a distinct hue plus a white progress bar that resets at every cut, so a sampler that misses a cut also visibly splices two different progress bars. Shot durations are generated from numpy rng(seed=7) and fixed up to sum to exactly 600 frames.",
+        "shot_durations_s": [
+          1.0667,
+          0.8333,
+          0.9,
+          1.0333,
+          0.8333,
+          0.9333,
+          1.0,
+          0.6,
+          0.6,
+          0.6333,
+          0.6,
+          1.0333,
+          1.0333,
+          0.5667,
+          0.7333,
+          0.9667,
+          0.5667,
+          0.9667,
+          0.5667,
+          0.7333,
+          0.9667,
+          0.6333,
+          0.6667,
+          0.6,
+          0.9333
+        ],
+        "seed": 7,
+        "frames_actual": 600,
+        "build_seconds": 0.7
+      }
+    },
+    {
+      "name": "C_slowpan_720p",
+      "file": "corpus/C_slowpan_720p.mp4",
+      "category": "C_slow_pan",
+      "duration_s": 30.0,
+      "fps": 25,
+      "width": 1280,
+      "height": 720,
+      "frames": 750,
+      "n_shots": 1,
+      "n_cuts": 0,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 1659161,
+      "poster": "corpus/posters/C_slowpan_720p.png",
+      "gt_file": "corpus/gt/C_slowpan_720p.gt.json",
+      "sha256": "e2e61bcd3333a7c23966704c8685883b069ae3c8b65eb7187e6d6b1a694c6adf",
+      "cuts": [],
+      "notes_head": "One continuous 30.000s take: a 1280px viewport pans across a 2560px panorama (0 -> 1280 px, ~42.7 px/s) while a 'MOVING LABEL' sprite drifts horizontally AND ve",
+      "gt": {
+        "name": "C_slowpan_720p",
+        "file": "corpus/C_slowpan_720p.mp4",
+        "category": "C_slow_pan",
+        "width": 1280,
+        "height": 720,
+        "fps": 25,
+        "frames": 750,
+        "duration": 30.0,
+        "container_duration": 30.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "SINGLE_TAKE",
+            "start": 0.0,
+            "end": 30.0,
+            "start_frame": 0,
+            "frames": 750
+          }
+        ],
+        "cuts": [],
+        "n_shots": 1,
+        "n_cuts": 0,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/C_slowpan_720p.png",
+        "bytes": 1659161,
+        "sha256": "e2e61bcd3333a7c23966704c8685883b069ae3c8b65eb7187e6d6b1a694c6adf",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": null,
+        "notes": "One continuous 30.000s take: a 1280px viewport pans across a 2560px panorama (0 -> 1280 px, ~42.7 px/s) while a 'MOVING LABEL' sprite drifts horizontally AND vertically (sin, period 6s) and a burned-in timer ticks. Ground truth has exactly 0 cuts, so any cut reported here is a false positive. Motion is smooth: neighbouring frames differ, which stresses scene detectors that threshold too low.",
+        "pan": {
+          "from_x": 0,
+          "to_x": 1280,
+          "speed_px_per_s": 42.667
+        },
+        "moving_text": {
+          "period_s": 6.0,
+          "x_range_px": [
+            60,
+            820
+          ],
+          "y_center_px": 216,
+          "y_amplitude_px": 70
+        },
+        "frames_actual": 750,
+        "build_seconds": 5.0
+      }
+    },
+    {
+      "name": "D_slideshow_720p",
+      "file": "corpus/D_slideshow_720p.mp4",
+      "category": "D_slideshow_ocr",
+      "duration_s": 36.0,
+      "fps": 24,
+      "width": 1280,
+      "height": 720,
+      "frames": 864,
+      "n_shots": 6,
+      "n_cuts": 5,
+      "n_text_cards": 6,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 574038,
+      "poster": "corpus/posters/D_slideshow_720p.png",
+      "gt_file": "corpus/gt/D_slideshow_720p.gt.json",
+      "sha256": "a3dcf2524d367cbbc2d2c50275ee00b396bbdd7c25091649aeb9bb7b3231cd33",
+      "cuts": [
+        6.0,
+        12.0,
+        18.0,
+        24.0,
+        30.0
+      ],
+      "notes_head": "Six static slides of exactly 6.000s each. Titles are Chinese at 96px (Microsoft YaHei Bold), English subtitles at 52px, body lines at 46px, all >=46px tall at 7",
+      "gt": {
+        "name": "D_slideshow_720p",
+        "file": "corpus/D_slideshow_720p.mp4",
+        "category": "D_slideshow_ocr",
+        "width": 1280,
+        "height": 720,
+        "fps": 24,
+        "frames": 864,
+        "duration": 36.0,
+        "container_duration": 36.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "CARD01",
+            "start": 0.0,
+            "end": 6.0,
+            "start_frame": 0,
+            "frames": 144
+          },
+          {
+            "index": 2,
+            "label": "CARD02",
+            "start": 6.0,
+            "end": 12.0,
+            "start_frame": 144,
+            "frames": 144
+          },
+          {
+            "index": 3,
+            "label": "CARD03",
+            "start": 12.0,
+            "end": 18.0,
+            "start_frame": 288,
+            "frames": 144
+          },
+          {
+            "index": 4,
+            "label": "CARD04",
+            "start": 18.0,
+            "end": 24.0,
+            "start_frame": 432,
+            "frames": 144
+          },
+          {
+            "index": 5,
+            "label": "CARD05",
+            "start": 24.0,
+            "end": 30.0,
+            "start_frame": 576,
+            "frames": 144
+          },
+          {
+            "index": 6,
+            "label": "CARD06",
+            "start": 30.0,
+            "end": 36.0,
+            "start_frame": 720,
+            "frames": 144
+          }
+        ],
+        "cuts": [
+          6.0,
+          12.0,
+          18.0,
+          24.0,
+          30.0
+        ],
+        "n_shots": 6,
+        "n_cuts": 5,
+        "text_cards": [
+          {
+            "start": 0.0,
+            "end": 6.0,
+            "index": 1,
+            "title_cn": "基准测试总览",
+            "title_en": "BENCHMARK OVERVIEW",
+            "lines": [
+              "帧采样 · frame sampling",
+              "镜头切分 · shot detection",
+              "语音转写 · speech to text"
+            ],
+            "text": "基准测试总览\nBENCHMARK OVERVIEW\n帧采样 · frame sampling\n镜头切分 · shot detection\n语音转写 · speech to text"
+          },
+          {
+            "start": 6.0,
+            "end": 12.0,
+            "index": 2,
+            "title_cn": "镜头切分",
+            "title_en": "SHOT DETECTION",
+            "lines": [
+              "硬切 · hard cut",
+              "淡入淡出 · fade",
+              "闪帧 · flash frame"
+            ],
+            "text": "镜头切分\nSHOT DETECTION\n硬切 · hard cut\n淡入淡出 · fade\n闪帧 · flash frame"
+          },
+          {
+            "start": 12.0,
+            "end": 18.0,
+            "index": 3,
+            "title_cn": "文字识别",
+            "title_en": "OCR READABILITY",
+            "lines": [
+              "中英混排 · mixed script",
+              "最小字号 46 像素",
+              "对比度 13:1"
+            ],
+            "text": "文字识别\nOCR READABILITY\n中英混排 · mixed script\n最小字号 46 像素\n对比度 13:1"
+          },
+          {
+            "start": 18.0,
+            "end": 24.0,
+            "index": 4,
+            "title_cn": "语音转写",
+            "title_en": "SPEECH TRANSCRIPTION",
+            "lines": [
+              "已知台词 · known script",
+              "静音间隔 1.8 秒",
+              "采样率 44100 Hz"
+            ],
+            "text": "语音转写\nSPEECH TRANSCRIPTION\n已知台词 · known script\n静音间隔 1.8 秒\n采样率 44100 Hz"
+          },
+          {
+            "start": 24.0,
+            "end": 30.0,
+            "index": 5,
+            "title_cn": "帧采样策略",
+            "title_en": "FRAME SAMPLING",
+            "lines": [
+              "均匀采样 · uniform",
+              "关键帧 · keyframe",
+              "质心采样 · centroid"
+            ],
+            "text": "帧采样策略\nFRAME SAMPLING\n均匀采样 · uniform\n关键帧 · keyframe\n质心采样 · centroid"
+          },
+          {
+            "start": 30.0,
+            "end": 36.0,
+            "index": 6,
+            "title_cn": "结论",
+            "title_en": "SUMMARY",
+            "lines": [
+              "九段素材 · nine clips",
+              "全部机器可读 · machine readable",
+              "真值精确到帧 · frame-exact"
+            ],
+            "text": "结论\nSUMMARY\n九段素材 · nine clips\n全部机器可读 · machine readable\n真值精确到帧 · frame-exact"
+          }
+        ],
+        "speech": [],
+        "poster": "corpus/posters/D_slideshow_720p.png",
+        "bytes": 574038,
+        "sha256": "a3dcf2524d367cbbc2d2c50275ee00b396bbdd7c25091649aeb9bb7b3231cd33",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": null,
+        "notes": "Six static slides of exactly 6.000s each. Titles are Chinese at 96px (Microsoft YaHei Bold), English subtitles at 52px, body lines at 46px, all >=46px tall at 720p so they stay ~11px tall in a 1280/5-wide tile. Every card carries both scripts on the same line-group, which is the hard case for OCR tile sizing: at 46px the CJK glyphs are 46x46 px, still legible after a 4x downscale, illegible after 8x.",
+        "card_texts": [
+          "基准测试总览\nBENCHMARK OVERVIEW\n帧采样 · frame sampling\n镜头切分 · shot detection\n语音转写 · speech to text",
+          "镜头切分\nSHOT DETECTION\n硬切 · hard cut\n淡入淡出 · fade\n闪帧 · flash frame",
+          "文字识别\nOCR READABILITY\n中英混排 · mixed script\n最小字号 46 像素\n对比度 13:1",
+          "语音转写\nSPEECH TRANSCRIPTION\n已知台词 · known script\n静音间隔 1.8 秒\n采样率 44100 Hz",
+          "帧采样策略\nFRAME SAMPLING\n均匀采样 · uniform\n关键帧 · keyframe\n质心采样 · centroid",
+          "结论\nSUMMARY\n九段素材 · nine clips\n全部机器可读 · machine readable\n真值精确到帧 · frame-exact"
+        ],
+        "frames_actual": 864,
+        "build_seconds": 2.2
+      }
+    },
+    {
+      "name": "E_blurtransition_720p",
+      "file": "corpus/E_blurtransition_720p.mp4",
+      "category": "E_blur_transition",
+      "duration_s": 11.0,
+      "fps": 30,
+      "width": 1280,
+      "height": 720,
+      "frames": 330,
+      "n_shots": 3,
+      "n_cuts": 0,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 200781,
+      "poster": "corpus/posters/E_blurtransition_720p.png",
+      "gt_file": "corpus/gt/E_blurtransition_720p.gt.json",
+      "sha256": "d805901d7c309f19b5220a71c8a4809d36f9e8ebc295351d96427b8dc44359b7",
+      "cuts": [],
+      "notes_head": "Shot A (5.000s, sharp) -> 30 transition frames (1.000s) -> shot B (5.000s, sharp). Transition frame i is a crossfade blended with a horizontal motion blur whose",
+      "gt": {
+        "name": "E_blurtransition_720p",
+        "file": "corpus/E_blurtransition_720p.mp4",
+        "category": "E_blur_transition",
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "frames": 330,
+        "duration": 11.0,
+        "container_duration": 11.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "SHOT_A",
+            "start": 0.0,
+            "end": 5.0,
+            "start_frame": 0,
+            "frames": 150
+          },
+          {
+            "index": 2,
+            "label": "TRANSITION",
+            "start": 5.0,
+            "end": 6.0,
+            "start_frame": 150,
+            "frames": 30
+          },
+          {
+            "index": 3,
+            "label": "SHOT_B",
+            "start": 6.0,
+            "end": 11.0,
+            "start_frame": 180,
+            "frames": 150
+          }
+        ],
+        "cuts": [],
+        "n_shots": 3,
+        "n_cuts": 0,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/E_blurtransition_720p.png",
+        "bytes": 200781,
+        "sha256": "d805901d7c309f19b5220a71c8a4809d36f9e8ebc295351d96427b8dc44359b7",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": null,
+        "notes": "Shot A (5.000s, sharp) -> 30 transition frames (1.000s) -> shot B (5.000s, sharp). Transition frame i is a crossfade blended with a horizontal motion blur whose radius follows 34*sin(pi*alpha), so it is ~0px at both ends and ~34px in the middle: the sharpest frame in the transition window IS the first or last one. There are NO hard cuts; a correct sampler should pick a sharp frame from the window rather than the blurriest one, so ground truth records the measured sharpness curve and the blurriest frame index.",
+        "transitions": [
+          {
+            "start": 5.0,
+            "end": 6.0,
+            "type": "motion_blur_x",
+            "frames": [
+              150,
+              179
+            ]
+          }
+        ],
+        "sharpness": {
+          "metric": "var(dx)+var(dy) of luma",
+          "clean_shot_value": 503.23,
+          "transition_curve": [
+            503.23,
+            315.85,
+            286.88,
+            260.27,
+            241.24,
+            230.51,
+            221.52,
+            216.05,
+            207.91,
+            203.04,
+            197.72,
+            192.88,
+            190.82,
+            188.6,
+            185.98,
+            185.1,
+            183.04,
+            183.19,
+            180.53,
+            183.14,
+            183.36,
+            185.78,
+            188.57,
+            191.36,
+            194.73,
+            201.65,
+            213.02,
+            232.67,
+            251.85,
+            403.28
+          ],
+          "blurriest_frame": 168,
+          "blurriest_time": 5.6,
+          "blurriest_value": 180.53,
+          "clean_frame_ranges": [
+            [
+              0,
+              149
+            ],
+            [
+              180,
+              329
+            ]
+          ]
+        },
+        "frames_actual": 330,
+        "build_seconds": 5.4
+      }
+    },
+    {
+      "name": "F_flicker_360p",
+      "file": "corpus/F_flicker_360p.mp4",
+      "category": "F_flicker_flash",
+      "duration_s": 24.0,
+      "fps": 30,
+      "width": 640,
+      "height": 360,
+      "frames": 720,
+      "n_shots": 1,
+      "n_cuts": 0,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 982956,
+      "poster": "corpus/posters/F_flicker_360p.png",
+      "gt_file": "corpus/gt/F_flicker_360p.gt.json",
+      "sha256": "569469bb22fc043a9a2c7d1d0c6b654021419d4fc2893811262a8df826574082",
+      "cuts": [],
+      "notes_head": "24.000s of continuously varying colour + two moving elements, with 12 SINGLE-FRAME pure-white flashes at the frame indices listed in flash_frames[]. Each flash ",
+      "gt": {
+        "name": "F_flicker_360p",
+        "file": "corpus/F_flicker_360p.mp4",
+        "category": "F_flicker_flash",
+        "width": 640,
+        "height": 360,
+        "fps": 30,
+        "frames": 720,
+        "duration": 24.0,
+        "container_duration": 24.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "CONTINUOUS",
+            "start": 0.0,
+            "end": 24.0,
+            "start_frame": 0,
+            "frames": 720
+          }
+        ],
+        "cuts": [],
+        "n_shots": 1,
+        "n_cuts": 0,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/F_flicker_360p.png",
+        "bytes": 982956,
+        "sha256": "569469bb22fc043a9a2c7d1d0c6b654021419d4fc2893811262a8df826574082",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": null,
+        "notes": "24.000s of continuously varying colour + two moving elements, with 12 SINGLE-FRAME pure-white flashes at the frame indices listed in flash_frames[]. Each flash lasts 1/30s = 33.3ms. A tile grid that spends a cell on a flash wastes that cell's whole time span, and a scene detector that thresholds naively will report 24 cuts where there are none. Content is designed so the luma of neighbouring normal frames differs by < 2/255, making a white frame pop.",
+        "flash_frames": [
+          {
+            "frame": 48,
+            "time": 1.6
+          },
+          {
+            "frame": 105,
+            "time": 3.5
+          },
+          {
+            "frame": 168,
+            "time": 5.6
+          },
+          {
+            "frame": 213,
+            "time": 7.1
+          },
+          {
+            "frame": 288,
+            "time": 9.6
+          },
+          {
+            "frame": 333,
+            "time": 11.1
+          },
+          {
+            "frame": 405,
+            "time": 13.5
+          },
+          {
+            "frame": 462,
+            "time": 15.4
+          },
+          {
+            "frame": 519,
+            "time": 17.3
+          },
+          {
+            "frame": 576,
+            "time": 19.2
+          },
+          {
+            "frame": 639,
+            "time": 21.3
+          },
+          {
+            "frame": 690,
+            "time": 23.0
+          }
+        ],
+        "flash_count": 12,
+        "flash_duration_ms": 33.333,
+        "expected_clean_frame_count": 708,
+        "frames_actual": 720,
+        "build_seconds": 2.5
+      }
+    },
+    {
+      "name": "G_speech_360p",
+      "file": "corpus/G_speech_360p.mp4",
+      "category": "G_speech_asr",
+      "duration_s": 22.066667,
+      "fps": 30,
+      "width": 640,
+      "height": 360,
+      "frames": 662,
+      "n_shots": 1,
+      "n_cuts": 0,
+      "n_text_cards": 9,
+      "n_speech": 4,
+      "has_audio": true,
+      "bytes": 355053,
+      "poster": "corpus/posters/G_speech_360p.png",
+      "gt_file": "corpus/gt/G_speech_360p.gt.json",
+      "sha256": "1a520da883691e2b6b7fa3405fd9e46e9a29000500c3e10749eac28874bdd261",
+      "cuts": [],
+      "notes_head": "Windows SAPI (Microsoft Zira Desktop) renders four sentences to 44.1kHz mono WAV; they are laid out at the offsets below with 1.4-1.8s silence between them. Eac",
+      "gt": {
+        "name": "G_speech_360p",
+        "file": "corpus/G_speech_360p.mp4",
+        "category": "G_speech_asr",
+        "width": 640,
+        "height": 360,
+        "fps": 30,
+        "frames": 662,
+        "duration": 22.066667,
+        "container_duration": 22.066667,
+        "shots": [
+          {
+            "index": 1,
+            "label": "SPEECH_CLIP",
+            "start": 0.0,
+            "end": 22.066667,
+            "start_frame": 0,
+            "frames": 662
+          }
+        ],
+        "cuts": [],
+        "n_shots": 1,
+        "n_cuts": 0,
+        "text_cards": [
+          {
+            "start": 0.0,
+            "end": 1.0,
+            "text": "SILENCE",
+            "detail": "gap 1.00s"
+          },
+          {
+            "start": 1.0,
+            "end": 4.3294,
+            "text": "SPEECH",
+            "detail": "The quick brown fox jumps over the lazy dog."
+          },
+          {
+            "start": 4.3294,
+            "end": 6.0294,
+            "text": "SILENCE",
+            "detail": "gap 1.70s"
+          },
+          {
+            "start": 6.0294,
+            "end": 10.0536,
+            "text": "SPEECH",
+            "detail": "Schema migration failed in the nightly build at three in the morning."
+          },
+          {
+            "start": 10.0536,
+            "end": 11.8536,
+            "text": "SILENCE",
+            "detail": "gap 1.80s"
+          },
+          {
+            "start": 11.8536,
+            "end": 15.1929,
+            "text": "SPEECH",
+            "detail": "Please rotate the API key before Friday."
+          },
+          {
+            "start": 15.1929,
+            "end": 16.5929,
+            "text": "SILENCE",
+            "detail": "gap 1.40s"
+          },
+          {
+            "start": 16.5929,
+            "end": 20.0422,
+            "text": "SPEECH",
+            "detail": "One hundred and forty two items remain in the queue."
+          },
+          {
+            "start": 20.0422,
+            "end": 22.066667,
+            "text": "SILENCE",
+            "detail": "tail 2.02s"
+          }
+        ],
+        "speech": [
+          {
+            "index": 1,
+            "start": 1.0,
+            "end": 4.3294,
+            "text": "The quick brown fox jumps over the lazy dog.",
+            "voice": "Microsoft Zira Desktop"
+          },
+          {
+            "index": 2,
+            "start": 6.0294,
+            "end": 10.0536,
+            "text": "Schema migration failed in the nightly build at three in the morning.",
+            "voice": "Microsoft Zira Desktop"
+          },
+          {
+            "index": 3,
+            "start": 11.8536,
+            "end": 15.1929,
+            "text": "Please rotate the API key before Friday.",
+            "voice": "Microsoft Zira Desktop"
+          },
+          {
+            "index": 4,
+            "start": 16.5929,
+            "end": 20.0422,
+            "text": "One hundred and forty two items remain in the queue.",
+            "voice": "Microsoft Zira Desktop"
+          }
+        ],
+        "poster": "corpus/posters/G_speech_360p.png",
+        "bytes": 355053,
+        "sha256": "1a520da883691e2b6b7fa3405fd9e46e9a29000500c3e10749eac28874bdd261",
+        "vcodec": "h264",
+        "acodec": "aac",
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": "44100",
+        "notes": "Windows SAPI (Microsoft Zira Desktop) renders four sentences to 44.1kHz mono WAV; they are laid out at the offsets below with 1.4-1.8s silence between them. Each sentence's exact end time is its WAV duration, not an estimate. The video card switches between 'SILENCE' (dark blue) and 'SPEECH' (dark amber) exactly at each speech start, and a green bar at the bottom tracks the per-frame RMS in dBFS (-60..0), so audio/video offset is measurable to one frame (33.3ms). Per-frame envelope: G_speech_360p.envelope.json.",
+        "silence_gaps": [
+          {
+            "start": 0.0,
+            "end": 1.0,
+            "duration": 1.0
+          },
+          {
+            "start": 4.3294,
+            "end": 6.0294,
+            "duration": 1.7
+          },
+          {
+            "start": 10.0536,
+            "end": 11.8536,
+            "duration": 1.8
+          },
+          {
+            "start": 15.1929,
+            "end": 16.5929,
+            "duration": 1.4
+          },
+          {
+            "start": 20.0422,
+            "end": 22.0667,
+            "duration": 2.0245
+          }
+        ],
+        "envelope_file": "corpus/G_speech_360p.envelope.json",
+        "audio_encoding": {
+          "sample_rate": 44100,
+          "codec": "aac",
+          "bitrate": "160k",
+          "channels": 2
+        },
+        "tts": {
+          "engine": "Windows SAPI System.Speech",
+          "voices": [
+            "Microsoft Zira Desktop"
+          ]
+        },
+        "frames_actual": 662,
+        "build_seconds": 3.1
+      }
+    },
+    {
+      "name": "H_music_360p",
+      "file": "corpus/H_music_360p.mp4",
+      "category": "H_music_only",
+      "duration_s": 30.0,
+      "fps": 24,
+      "width": 640,
+      "height": 360,
+      "frames": 720,
+      "n_shots": 1,
+      "n_cuts": 0,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": true,
+      "bytes": 929831,
+      "poster": "corpus/posters/H_music_360p.png",
+      "gt_file": "corpus/gt/H_music_360p.gt.json",
+      "sha256": "f0fcf482ec4eaa99dee8ed20704013b0efae95ea1c4848dca820cd3a5172e376",
+      "cuts": [],
+      "notes_head": "30.000s of synthesized instrumental music (Am-F-G-Am pad + arpeggio, no voices) split into four sections: LOUD / QUIET / LOUD / QUIET with a measured loud-quiet",
+      "gt": {
+        "name": "H_music_360p",
+        "file": "corpus/H_music_360p.mp4",
+        "category": "H_music_only",
+        "width": 640,
+        "height": 360,
+        "fps": 24,
+        "frames": 720,
+        "duration": 30.0,
+        "container_duration": 30.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "MUSIC",
+            "start": 0.0,
+            "end": 30.0,
+            "start_frame": 0,
+            "frames": 720
+          }
+        ],
+        "cuts": [],
+        "n_shots": 1,
+        "n_cuts": 0,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/H_music_360p.png",
+        "bytes": 929831,
+        "sha256": "f0fcf482ec4eaa99dee8ed20704013b0efae95ea1c4848dca820cd3a5172e376",
+        "vcodec": "h264",
+        "acodec": "aac",
+        "pix_fmt": "yuv420p",
+        "field_order": "progressive",
+        "audio_sample_rate": "44100",
+        "notes": "30.000s of synthesized instrumental music (Am-F-G-Am pad + arpeggio, no voices) split into four sections: LOUD / QUIET / LOUD / QUIET with a measured loud-quiet contrast of 26.85 dB. There is NO speech in this clip, so a correct ASR pass returns an empty transcript; anything else is a false positive. The video shows the per-frame dBFS and a level bar so the envelope can be matched frame by frame.",
+        "audio_sections": [
+          {
+            "start": 0.0,
+            "end": 8.0,
+            "level": "loud",
+            "gain": 1.0,
+            "measured_mean_db": -9.6,
+            "measured_max_db": -0.1
+          },
+          {
+            "start": 8.0,
+            "end": 16.0,
+            "level": "quiet",
+            "gain": 0.035,
+            "measured_mean_db": -38.7,
+            "measured_max_db": -28.3
+          },
+          {
+            "start": 16.0,
+            "end": 24.0,
+            "level": "loud",
+            "gain": 0.85,
+            "measured_mean_db": -10.9,
+            "measured_max_db": -0.5
+          },
+          {
+            "start": 24.0,
+            "end": 30.0,
+            "level": "quiet",
+            "gain": 0.05,
+            "measured_mean_db": -35.5,
+            "measured_max_db": -25.2
+          }
+        ],
+        "loud_quiet_contrast_db": 26.85,
+        "spectrum": {
+          "chords": [
+            "A2-C4-E4",
+            "F2-A3-C4",
+            "G2-B3-D4",
+            "A2-C4-E4"
+          ],
+          "instrument": "additive sine pad + decaying arpeggio"
+        },
+        "expected_transcript": "",
+        "frames_actual": 720,
+        "build_seconds": 2.3
+      }
+    },
+    {
+      "name": "I_portrait_interlaced",
+      "file": "corpus/I_portrait_interlaced.mp4",
+      "category": "I_portrait_interlaced",
+      "duration_s": 22.0,
+      "fps": 25,
+      "width": 480,
+      "height": 852,
+      "frames": 550,
+      "n_shots": 4,
+      "n_cuts": 3,
+      "n_text_cards": 0,
+      "n_speech": 0,
+      "has_audio": false,
+      "bytes": 522582,
+      "poster": "corpus/posters/I_portrait_interlaced.png",
+      "gt_file": "corpus/gt/I_portrait_interlaced.gt.json",
+      "sha256": "40bbef44f69239c67bb7f9f1b101b52f7820bab79c303d48f874b27824e5bc8f",
+      "cuts": [
+        6.0,
+        12.0,
+        17.0
+      ],
+      "notes_head": "Portrait 480x852 (0.563:1) encoded as TRUE interlaced H.264 top-field-first: each output frame takes its top field from moment n and its bottom field from momen",
+      "gt": {
+        "name": "I_portrait_interlaced",
+        "file": "corpus/I_portrait_interlaced.mp4",
+        "category": "I_portrait_interlaced",
+        "width": 480,
+        "height": 852,
+        "fps": 25,
+        "frames": 550,
+        "duration": 22.0,
+        "container_duration": 22.0,
+        "shots": [
+          {
+            "index": 1,
+            "label": "PORTRAIT 01",
+            "start": 0.0,
+            "end": 6.0,
+            "start_frame": 0,
+            "frames": 150
+          },
+          {
+            "index": 2,
+            "label": "PORTRAIT 02",
+            "start": 6.0,
+            "end": 12.0,
+            "start_frame": 150,
+            "frames": 150
+          },
+          {
+            "index": 3,
+            "label": "PORTRAIT 03",
+            "start": 12.0,
+            "end": 17.0,
+            "start_frame": 300,
+            "frames": 125
+          },
+          {
+            "index": 4,
+            "label": "PORTRAIT 04",
+            "start": 17.0,
+            "end": 22.0,
+            "start_frame": 425,
+            "frames": 125
+          }
+        ],
+        "cuts": [
+          6.0,
+          12.0,
+          17.0
+        ],
+        "n_shots": 4,
+        "n_cuts": 3,
+        "text_cards": [],
+        "speech": [],
+        "poster": "corpus/posters/I_portrait_interlaced.png",
+        "bytes": 522582,
+        "sha256": "40bbef44f69239c67bb7f9f1b101b52f7820bab79c303d48f874b27824e5bc8f",
+        "vcodec": "h264",
+        "acodec": null,
+        "pix_fmt": "yuv420p",
+        "field_order": "tt",
+        "audio_sample_rate": null,
+        "notes": "Portrait 480x852 (0.563:1) encoded as TRUE interlaced H.264 top-field-first: each output frame takes its top field from moment n and its bottom field from moment n+1, so combing is real and a deinterlacer must be used or the moving elements will look feathered. Tests (a) non-16:9 aspect handling, (b) field-order metadata and (c) vertically tall tiles. 22.000s, 4 shots. NOTE: 480x854 is NOT a legal size for interlaced H.264 4:2:0 - libx264 rejects it with 'height not divisible by 4 (480x854)'. 852 (213 macroblocks) is the nearest legal height, hence 480x852.",
+        "aspect_ratio": 0.5634,
+        "orientation": "portrait",
+        "labels": [
+          "PORTRAIT 01",
+          "PORTRAIT 02",
+          "PORTRAIT 03",
+          "PORTRAIT 04"
+        ],
+        "interlaced": true,
+        "encoded_field_order": "tt",
+        "requires_deinterlace": true,
+        "frame_notes": "top and bottom fields come from consecutive moments",
+        "frames_actual": 550,
+        "build_seconds": 2.2
+      }
+    }
+  ]
+}

@@ -1,0 +1,282 @@
+{
+  "name": "B_montage_360p",
+  "file": "corpus/B_montage_360p.mp4",
+  "category": "B_fast_montage",
+  "width": 640,
+  "height": 360,
+  "fps": 30,
+  "frames": 600,
+  "duration": 20.0,
+  "container_duration": 20.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "M01",
+      "start": 0.0,
+      "end": 1.066667,
+      "start_frame": 0,
+      "frames": 32
+    },
+    {
+      "index": 2,
+      "label": "M02",
+      "start": 1.066667,
+      "end": 1.9,
+      "start_frame": 32,
+      "frames": 25
+    },
+    {
+      "index": 3,
+      "label": "M03",
+      "start": 1.9,
+      "end": 2.8,
+      "start_frame": 57,
+      "frames": 27
+    },
+    {
+      "index": 4,
+      "label": "M04",
+      "start": 2.8,
+      "end": 3.833333,
+      "start_frame": 84,
+      "frames": 31
+    },
+    {
+      "index": 5,
+      "label": "M05",
+      "start": 3.833333,
+      "end": 4.666667,
+      "start_frame": 115,
+      "frames": 25
+    },
+    {
+      "index": 6,
+      "label": "M06",
+      "start": 4.666667,
+      "end": 5.6,
+      "start_frame": 140,
+      "frames": 28
+    },
+    {
+      "index": 7,
+      "label": "M07",
+      "start": 5.6,
+      "end": 6.6,
+      "start_frame": 168,
+      "frames": 30
+    },
+    {
+      "index": 8,
+      "label": "M08",
+      "start": 6.6,
+      "end": 7.2,
+      "start_frame": 198,
+      "frames": 18
+    },
+    {
+      "index": 9,
+      "label": "M09",
+      "start": 7.2,
+      "end": 7.8,
+      "start_frame": 216,
+      "frames": 18
+    },
+    {
+      "index": 10,
+      "label": "M10",
+      "start": 7.8,
+      "end": 8.433333,
+      "start_frame": 234,
+      "frames": 19
+    },
+    {
+      "index": 11,
+      "label": "M11",
+      "start": 8.433333,
+      "end": 9.033333,
+      "start_frame": 253,
+      "frames": 18
+    },
+    {
+      "index": 12,
+      "label": "M12",
+      "start": 9.033333,
+      "end": 10.066667,
+      "start_frame": 271,
+      "frames": 31
+    },
+    {
+      "index": 13,
+      "label": "M13",
+      "start": 10.066667,
+      "end": 11.1,
+      "start_frame": 302,
+      "frames": 31
+    },
+    {
+      "index": 14,
+      "label": "M14",
+      "start": 11.1,
+      "end": 11.666667,
+      "start_frame": 333,
+      "frames": 17
+    },
+    {
+      "index": 15,
+      "label": "M15",
+      "start": 11.666667,
+      "end": 12.4,
+      "start_frame": 350,
+      "frames": 22
+    },
+    {
+      "index": 16,
+      "label": "M16",
+      "start": 12.4,
+      "end": 13.366667,
+      "start_frame": 372,
+      "frames": 29
+    },
+    {
+      "index": 17,
+      "label": "M17",
+      "start": 13.366667,
+      "end": 13.933333,
+      "start_frame": 401,
+      "frames": 17
+    },
+    {
+      "index": 18,
+      "label": "M18",
+      "start": 13.933333,
+      "end": 14.9,
+      "start_frame": 418,
+      "frames": 29
+    },
+    {
+      "index": 19,
+      "label": "M19",
+      "start": 14.9,
+      "end": 15.466667,
+      "start_frame": 447,
+      "frames": 17
+    },
+    {
+      "index": 20,
+      "label": "M20",
+      "start": 15.466667,
+      "end": 16.2,
+      "start_frame": 464,
+      "frames": 22
+    },
+    {
+      "index": 21,
+      "label": "M21",
+      "start": 16.2,
+      "end": 17.166667,
+      "start_frame": 486,
+      "frames": 29
+    },
+    {
+      "index": 22,
+      "label": "M22",
+      "start": 17.166667,
+      "end": 17.8,
+      "start_frame": 515,
+      "frames": 19
+    },
+    {
+      "index": 23,
+      "label": "M23",
+      "start": 17.8,
+      "end": 18.466667,
+      "start_frame": 534,
+      "frames": 20
+    },
+    {
+      "index": 24,
+      "label": "M24",
+      "start": 18.466667,
+      "end": 19.066667,
+      "start_frame": 554,
+      "frames": 18
+    },
+    {
+      "index": 25,
+      "label": "M25",
+      "start": 19.066667,
+      "end": 20.0,
+      "start_frame": 572,
+      "frames": 28
+    }
+  ],
+  "cuts": [
+    1.066667,
+    1.9,
+    2.8,
+    3.833333,
+    4.666667,
+    5.6,
+    6.6,
+    7.2,
+    7.8,
+    8.433333,
+    9.033333,
+    10.066667,
+    11.1,
+    11.666667,
+    12.4,
+    13.366667,
+    13.933333,
+    14.9,
+    15.466667,
+    16.2,
+    17.166667,
+    17.8,
+    18.466667,
+    19.066667
+  ],
+  "n_shots": 25,
+  "n_cuts": 24,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/B_montage_360p.png",
+  "bytes": 145613,
+  "sha256": "a89893a39c19f3d34b9a23062ec0acdcc1e5eb25c2111aff86767ea70aae81e1",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": null,
+  "notes": "25 shots of 0.600-1.500s, 24 cuts in exactly 20.000s. Each shot is a big index label on a distinct hue plus a white progress bar that resets at every cut, so a sampler that misses a cut also visibly splices two different progress bars. Shot durations are generated from numpy rng(seed=7) and fixed up to sum to exactly 600 frames.",
+  "shot_durations_s": [
+    1.0667,
+    0.8333,
+    0.9,
+    1.0333,
+    0.8333,
+    0.9333,
+    1.0,
+    0.6,
+    0.6,
+    0.6333,
+    0.6,
+    1.0333,
+    1.0333,
+    0.5667,
+    0.7333,
+    0.9667,
+    0.5667,
+    0.9667,
+    0.5667,
+    0.7333,
+    0.9667,
+    0.6333,
+    0.6667,
+    0.6,
+    0.9333
+  ],
+  "seed": 7,
+  "frames_actual": 600,
+  "build_seconds": 0.7
+}

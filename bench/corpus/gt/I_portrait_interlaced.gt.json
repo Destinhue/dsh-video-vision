@@ -1,0 +1,77 @@
+{
+  "name": "I_portrait_interlaced",
+  "file": "corpus/I_portrait_interlaced.mp4",
+  "category": "I_portrait_interlaced",
+  "width": 480,
+  "height": 852,
+  "fps": 25,
+  "frames": 550,
+  "duration": 22.0,
+  "container_duration": 22.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "PORTRAIT 01",
+      "start": 0.0,
+      "end": 6.0,
+      "start_frame": 0,
+      "frames": 150
+    },
+    {
+      "index": 2,
+      "label": "PORTRAIT 02",
+      "start": 6.0,
+      "end": 12.0,
+      "start_frame": 150,
+      "frames": 150
+    },
+    {
+      "index": 3,
+      "label": "PORTRAIT 03",
+      "start": 12.0,
+      "end": 17.0,
+      "start_frame": 300,
+      "frames": 125
+    },
+    {
+      "index": 4,
+      "label": "PORTRAIT 04",
+      "start": 17.0,
+      "end": 22.0,
+      "start_frame": 425,
+      "frames": 125
+    }
+  ],
+  "cuts": [
+    6.0,
+    12.0,
+    17.0
+  ],
+  "n_shots": 4,
+  "n_cuts": 3,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/I_portrait_interlaced.png",
+  "bytes": 522582,
+  "sha256": "40bbef44f69239c67bb7f9f1b101b52f7820bab79c303d48f874b27824e5bc8f",
+  "vcodec": "h264",
+  "acodec": null,
+  "pix_fmt": "yuv420p",
+  "field_order": "tt",
+  "audio_sample_rate": null,
+  "notes": "Portrait 480x852 (0.563:1) encoded as TRUE interlaced H.264 top-field-first: each output frame takes its top field from moment n and its bottom field from moment n+1, so combing is real and a deinterlacer must be used or the moving elements will look feathered. Tests (a) non-16:9 aspect handling, (b) field-order metadata and (c) vertically tall tiles. 22.000s, 4 shots. NOTE: 480x854 is NOT a legal size for interlaced H.264 4:2:0 - libx264 rejects it with 'height not divisible by 4 (480x854)'. 852 (213 macroblocks) is the nearest legal height, hence 480x852.",
+  "aspect_ratio": 0.5634,
+  "orientation": "portrait",
+  "labels": [
+    "PORTRAIT 01",
+    "PORTRAIT 02",
+    "PORTRAIT 03",
+    "PORTRAIT 04"
+  ],
+  "interlaced": true,
+  "encoded_field_order": "tt",
+  "requires_deinterlace": true,
+  "frame_notes": "top and bottom fields come from consecutive moments",
+  "frames_actual": 550,
+  "build_seconds": 2.2
+}

@@ -1,0 +1,67 @@
+{
+  "name": "dsh-video-vision",
+  "version": "1.0.0",
+  "description": "Look at a video, not a summary of it: one addressable storyboard grid per view, tuned for deepseek-v4.1-flash vision — adaptive cell resolution, content-aware layout, frame-level scene detection and a token-tight index.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "video",
+    "storyboard",
+    "contact-sheet",
+    "ffmpeg",
+    "multimodal",
+    "vision",
+    "deepseek-v4.1-flash"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json",
+    "./scan": "./src/scan.js",
+    "./layout": "./src/layout.js",
+    "./sheet": "./src/sheet.js",
+    "./media": "./src/media.js",
+    "./pipeline": "./src/pipeline.js",
+    "./manifest": "./src/manifest.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "test",
+    "docs",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "dsh-video-vision-install": "bin/install.mjs",
+    "dsh-video-vision-selfcheck": "bin/selfcheck.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "selfcheck": "node bin/selfcheck.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SAOS-3624/dsh-video-vision.git"
+  },
+  "homepage": "https://github.com/SAOS-3624/dsh-video-vision#readme",
+  "bugs": {
+    "url": "https://github.com/SAOS-3624/dsh-video-vision/issues"
+  }
+}

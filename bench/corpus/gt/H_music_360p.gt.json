@@ -1,0 +1,99 @@
+{
+  "name": "H_music_360p",
+  "file": "corpus/H_music_360p.mp4",
+  "category": "H_music_only",
+  "width": 640,
+  "height": 360,
+  "fps": 24,
+  "frames": 720,
+  "duration": 30.0,
+  "container_duration": 30.0,
+  "shots": [
+    {
+      "index": 1,
+      "label": "MUSIC",
+      "start": 0.0,
+      "end": 30.0,
+      "start_frame": 0,
+      "frames": 720
+    }
+  ],
+  "cuts": [],
+  "n_shots": 1,
+  "n_cuts": 0,
+  "text_cards": [],
+  "speech": [],
+  "poster": "corpus/posters/H_music_360p.png",
+  "bytes": 929831,
+  "sha256": "f0fcf482ec4eaa99dee8ed20704013b0efae95ea1c4848dca820cd3a5172e376",
+  "vcodec": "h264",
+  "acodec": "aac",
+  "pix_fmt": "yuv420p",
+  "field_order": "progressive",
+  "audio_sample_rate": "44100",
+  "notes": "30.000s of synthesized instrumental music (Am-F-G-Am pad + arpeggio, no voices) split into four sections: LOUD / QUIET / LOUD / QUIET with a measured loud-quiet contrast of 26.85 dB. There is NO speech in this clip, so a correct ASR pass returns an empty transcript; anything else is a false positive. The video shows the per-frame dBFS and a level bar so the envelope can be matched frame by frame.",
+  "audio_sections": [
+    {
+      "start": 0.0,
+      "end": 8.0,
+      "level": "loud",
+      "gain": 1.0,
+      "measured_mean_db": -9.6,
+      "measured_max_db": -0.1
+    },
+    {
+      "start": 8.0,
+      "end": 16.0,
+      "level": "quiet",
+      "gain": 0.035,
+      "measured_mean_db": -38.7,
+      "measured_max_db": -28.3
+    },
+    {
+      "start": 16.0,
+      "end": 24.0,
+      "level": "loud",
+      "gain": 0.85,
+      "measured_mean_db": -10.9,
+      "measured_max_db": -0.5
+    },
+    {
+      "start": 24.0,
+      "end": 30.0,
+      "level": "quiet",
+      "gain": 0.05,
+      "measured_mean_db": -35.5,
+      "measured_max_db": -25.2
+    }
+  ],
+  "expected_visual_changes": [
+    {
+      "frame": 192,
+      "time": 8.0,
+      "reason": "section background/label switches to quiet (not a shot cut)"
+    },
+    {
+      "frame": 384,
+      "time": 16.0,
+      "reason": "section background/label switches to loud (not a shot cut)"
+    },
+    {
+      "frame": 576,
+      "time": 24.0,
+      "reason": "section background/label switches to quiet (not a shot cut)"
+    }
+  ],
+  "loud_quiet_contrast_db": 26.85,
+  "spectrum": {
+    "chords": [
+      "A2-C4-E4",
+      "F2-A3-C4",
+      "G2-B3-D4",
+      "A2-C4-E4"
+    ],
+    "instrument": "additive sine pad + decaying arpeggio"
+  },
+  "expected_transcript": "",
+  "frames_actual": 720,
+  "build_seconds": 2.3
+}
