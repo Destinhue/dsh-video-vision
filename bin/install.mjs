@@ -79,7 +79,19 @@ if (!hadDep) {
   pkg.dependencies[PKG] = spec;
   log(`dependencies["${PKG}"] = ${spec}`);
 } else if (pkg.dependencies[PKG] !== spec) {
-  log(`dependencies["${PKG}"] already present (${pkg.dependencies[PKG]}) — left as is`);
+  const current = String(pkg.dependencies[PKG]);
+  // A link: that points at another checkout means this plugin was installed
+  // from somewhere else (a moved directory, or a second copy). Repoint it,
+  // otherwise the profile keeps loading the old source and the edit the user
+  // just made never takes effect — which looks exactly like a broken plugin.
+  if (/^link:/.test(current) && !dryRun) {
+    pkg.dependencies[PKG] = spec;
+    log(`dependencies["${PKG}"] repointed: ${current} -> ${spec}`);
+  } else if (/^link:/.test(current)) {
+    log(`dependencies["${PKG}"] would be repointed: ${current} -> ${spec}`);
+  } else {
+    log(`dependencies["${PKG}"] is ${current} — left as is (not a link:)`);
+  }
 } else {
   log(`dependency already present`);
 }
