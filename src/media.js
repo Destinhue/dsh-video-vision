@@ -345,7 +345,8 @@ function emptyInfo(pathIn) {
 /**
  * Parse `ffmpeg -i file` machine-ish output. This is the ffprobe-less path.
  * ffmpeg writes the same facts to stderr before it complains about a missing
- * output file, so we run it with `-f null -` to get a clean, fast banner.
+ * output file, so we run it with `-t 0 -f null -` to get a clean, fast banner
+ * without decoding a single frame of the payload.
  */
 export function parseFfmpegBanner(text, pathIn) {
   const info = emptyInfo(pathIn);
@@ -361,7 +362,16 @@ export function parseFfmpegBanner(text, pathIn) {
   while ((m = streamRe.exec(text)) !== null) {
     const kind = m[1];
     const body = m[2];
-    if (kind === 'Audio') { info.hasAudio = true; info.audioCodec = body.split(/[,\s]/)[0]; continue; }
+    if (kind === 'Audio') {
+      // First audio stream wins, same as video: a container can carry a second
+      // PCM/commentary track after the real AAC one, and the last writer would
+      // otherwise win and misreport the codec.
+      if (!info.hasAudio) {
+        info.hasAudio = true;
+        info.audioCodec = body.split(/[,\s]/)[0];
+      }
+      continue;
+    }
     if (kind === 'Subtitle') { info.hasSubtitle = true; continue; }
     // Only the first video stream wins; attached cover art comes later.
     if (kind !== 'Video' || sawVideo) continue;
@@ -395,6 +405,19 @@ function finalize(info) {
   if (!(info.duration > 0)) info.duration = 0;
   if (!(info.fps > 0)) info.fps = 25;
   return info;
+}
+
+/**
+ * The argument vector for the ffprobe-less banner read.
+ *
+ * `-t 0` is not cosmetic: without it the null muxer decodes the WHOLE input and
+ * throws it away — measured 130 s on a two-hour lecture file against a 60 s
+ * budget, so a long video simply failed to probe. With `-t 0` the same file
+ * answers in 142 ms, and every line the parser wants is already on stderr by
+ * the time the input has been opened.
+ */
+export function bannerProbeArgs(input) {
+  return ['-hide_banner', '-nostdin', '-i', input, '-t', '0', '-f', 'null', '-'];
 }
 
 /**
@@ -446,7 +469,7 @@ export async function probeVideo(input, opts = {}) {
   }
   const ffmpegPath = opts.ffmpegPath === undefined ? await findFfmpeg() : opts.ffmpegPath;
   if (!ffmpegPath) throw new Error('no ffmpeg and no ffprobe found — cannot read the video');
-  const r = await run(ffmpegPath, ['-hide_banner', '-nostdin', '-i', input, '-f', 'null', '-'], {
+  const r = await run(ffmpegPath, bannerProbeArgs(input), {
     maxBuffer: 8 * 1024 * 1024, timeoutMs: 60_000,
   });
   const info = parseFfmpegBanner(r.stderr.toString('utf8'), input);

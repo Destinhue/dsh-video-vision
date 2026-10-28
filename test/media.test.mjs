@@ -15,6 +15,7 @@ import {
   uprightSize,
   displayAspect,
   parseFfmpegBanner,
+  bannerProbeArgs,
 } from '../src/media.js';
 
 const BANNER = `ffmpeg version 7.1 Copyright (c) 2000-2024 the FFmpeg developers
@@ -84,6 +85,29 @@ test('without ffprobe the banner path still returns real facts', async (t) => {
   assert.ok(Math.abs(info.duration - 40) < 1.5, `duration ${info.duration}`);
   assert.ok(info.coded.width >= 640 && info.coded.height >= 360, JSON.stringify(info.coded));
   assert.ok(info.fps > 0);
+});
+
+test('the banner probe stops at the first frame instead of decoding everything', () => {
+  // A missing -t 0 makes the null muxer decode the whole file (130 s on a
+  // two-hour lecture, against a 60 s budget) — this pins the fix.
+  const args = bannerProbeArgs('/tmp/a.mp4');
+  const t = args.indexOf('-t');
+  assert.ok(t >= 0, 'the probe needs -t 0');
+  assert.equal(args[t + 1], '0');
+  assert.ok(args.indexOf('-i') < t, '-t belongs to the output side');
+  assert.deepEqual(args.slice(-2), ['null', '-']);
+});
+
+test('the first audio stream wins over a later pcm track', () => {
+  const text = `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'dual.mp4':
+  Duration: 00:00:22.07, start: 0.000000, bitrate: 900 kb/s
+  Stream #0:0(und): Video: h264 (High), yuv420p, 640x360 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr (default)
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, mono, fltp, 69 kb/s (default)
+  Stream #0:2(und): Audio: pcm_s16le (ipcm / 0x70636D69), 48000 Hz, mono, s16, 768 kb/s
+`;
+  const info = parseFfmpegBanner(text, 'dual.mp4');
+  assert.equal(info.hasAudio, true);
+  assert.equal(info.audioCodec, 'aac');
 });
 
 test('a tbr line stands in when no fps is printed', () => {

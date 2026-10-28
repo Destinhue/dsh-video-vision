@@ -179,6 +179,29 @@ cells; the useful move is `start`/`end`.
 On the 196 s cut of the same film (nine clips once): 2 273 ms, one 4×7 sheet,
 28 cells, 1 024 tokens, 1 260 characters of index.
 
+### Two hours
+
+A 2 h 7053 s composite (the 13-minute film looped nine times, 1280×720) was run
+end to end with **no ffprobe on the machine**, so the metadata came from the
+ffmpeg banner:
+
+| | one call |
+| --- | --- |
+| probe | **226 ms** |
+| whole call | 38 536 ms |
+| analysis (48 000 sampled frames) | 36 557 ms |
+| frame decode (28 cells) | 1 488 ms |
+| cells / sheet / tokens | 28 · 1 334×1 319 4×7 · 1 024 |
+| manifest | 1 448 chars |
+
+The probe figure is the load-bearing one. Before 1.0.1 the banner read ran
+`ffmpeg -i … -f null -`, which decodes the whole input before discarding it —
+130 s on a file this length against a 60 s budget, so any long video failed
+outright on a machine without ffprobe. `-t 0` stops once the input is open and
+returns in 226 ms; every line the parser wants is already on stderr by then.
+The full two-hour storyboard is still a 38-second call, so the useful move for
+lecture-length material remains `start`/`end` windows.
+
 ## Why it is fast
 
 | phase (70 s, 1 910×984, 30 fps) | |
@@ -272,7 +295,7 @@ node bench/final.mjs --reps 3          # latency, geometry, tokens, coverage
 node bench/accuracy.mjs auto           # per-clip cut scoring against ground truth
 node bin/selfcheck.mjs --smoke         # 16 checks, builds its own clip
 node bin/selfcheck.mjs --smoke --host  # + the host's own schema engine (29 checks)
-node --test test/                      # 159 unit tests
+node --test test/                      # 161 unit tests
 ```
 
 `bench/results/final.json` holds the raw records these tables were generated

@@ -1,9 +1,20 @@
 # Changelog
 
-## [Unreleased]
+## 1.0.1
 
 ### Fixed
 
+- **A long file failed to probe when only ffmpeg was available.** The banner
+  fallback ran `ffmpeg -i … -f null -`, and the null muxer decodes the whole
+  input before discarding it — 130 s on a two-hour lecture against a 60 s
+  budget, so the call died. It now passes `-t 0` and stops once the input is
+  open, because every line the parser reads is already on stderr. Same 2 h
+  file: **226 ms** end-to-end probe (measured on a 7053 s / 2 h composite with
+  no ffprobe present). A full storyboard of that file now completes in 38.5 s.
+- The banner parser let a **later audio stream overwrite the first**, so a file
+  carrying AAC followed by a PCM/commentary track was reported as
+  `pcm_s16le`. It is first-wins now, matching the rule already used for video
+  streams. Both defects are pinned by `test/media.test.mjs`.
 - `bin/install.mjs` no longer trusts a `node_modules` entry that resolves to a
   *different* checkout — it relinks it, the same way a stale `link:` dependency
   is repointed. Leaving it alone made edits appear to do nothing.
@@ -11,6 +22,8 @@
   delete. On Windows a recursive delete follows the junction and empties the
   checkout it was replacing, which is the one thing an installer must not do.
   Both paths are covered by `test/install.test.mjs`.
+
+`161` tests, `--smoke` 16/16 (17 with ffprobe), `--smoke --host` 29/29.
 
 ## 1.0.0
 
@@ -103,4 +116,4 @@ shapes are unchanged).
   cut scorer against the corpus ground truth.
 - `bin/selfcheck.mjs --smoke --host` runs 29 assertions, including the host's
   own `assertSupportedJsonSchema` and `validateJsonSchemaValue` on every tool.
-- `node --test test/` — 159 tests, no network, hermetic temp dir.
+- `node --test test/` — 161 tests, no network, hermetic temp dir.
