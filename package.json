@@ -38,7 +38,9 @@
     "README.zh.md",
     "CHANGELOG.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "screenshots.json",
+    "assets"
   ],
   "engines": {
     "node": ">=20"
