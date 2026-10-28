@@ -59,6 +59,10 @@ python bench/gen/verify.py            # re-decodes the mp4s and re-checks the tr
 The corpus ships with the repository so the evidence is checkable without
 regeneration. See `NOTICE` for its provenance.
 
+The PNGs in `docs/demo/` were produced by `bench/e2e.mjs` over corpus clips D, G
+and a `--zoom` of E; they are checked in so the README shows real output rather
+than a mock-up.
+
 ## Frozen results
 
 `results/final.json` is the battery quoted in `docs/EVIDENCE.md`;

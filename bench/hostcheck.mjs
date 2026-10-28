@@ -15,17 +15,30 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 
-const APP = process.env.DSH_APP_ASAR
-  || 'C:/Users/Administrator/AppData/Local/Programs/DeepSeek Harness/resources/app.asar';
-const TOOLS = `${APP}/dsh/node_modules/@deepseek-ai/dsh-tools/lib/index.js`;
+// Find the installed harness. Windows desktop install, a portable tree, or an
+// explicit DSH_APP_ASAR all work; reading inside app.asar needs Electron's node.
+const TOOLS_IN_APP = ['dsh', 'node_modules', '@deepseek-ai', 'dsh-tools', 'lib', 'index.js'];
+const appCandidates = [
+  process.env.DSH_APP_ASAR,
+  process.env.DSH_RESOURCES && path.join(process.env.DSH_RESOURCES, 'app.asar'),
+  process.resourcesPath && path.join(process.resourcesPath, 'app.asar'),
+  process.execPath && path.join(path.dirname(process.execPath), 'resources', 'app.asar'),
+  process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness', 'resources', 'app.asar'),
+].filter(Boolean);
+const APP = appCandidates.find((p) => existsSync(path.join(p, ...TOOLS_IN_APP))) || appCandidates[0];
+const TOOLS = path.join(APP, ...TOOLS_IN_APP);
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const PLUGIN = path.join(ROOT, 'src', 'index.js');
 const CLIP = process.argv[2] ?? path.join(ROOT, 'bench', 'corpus', 'A_hardcuts_720p.mp4');
 
-if (!existsSync(TOOLS.replace(/^\//, '')) && !process.env.DSH_APP_ASAR) {
+if (!APP) {
+  console.error('note: no DeepSeek Harness install found — set DSH_APP_ASAR to its resources/app.asar');
+  process.exit(2);
+}
+if (!existsSync(TOOLS)) {
   // Electron's fs can read inside asar; plain node cannot. Say so plainly.
-  console.error('note: reading app.asar requires the Electron runtime (ELECTRON_RUN_AS_NODE=1)');
+  console.error(`note: ${TOOLS} not readable here; reading app.asar requires the Electron runtime (ELECTRON_RUN_AS_NODE=1)`);
 }
 
 const host = await import(pathToFileURL(TOOLS).href);

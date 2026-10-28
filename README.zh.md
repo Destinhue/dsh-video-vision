@@ -13,6 +13,19 @@ video_zoom        对一个短窗口放大看，1-9 格
 > 每一项设计决定背后的实测数据见 [docs/DESIGN.md](docs/DESIGN.md)；
 > 与参考实现的对比数据见 [docs/EVIDENCE.md](docs/EVIDENCE.md)。
 
+<table>
+<tr>
+<td width="50%"><img src="docs/demo/storyboard-text-cards.png" alt="六张文字卡组成的一张分镜图"><br>
+<em>D 片段：六张只有文字块不同的卡片，六格 / 359 token，每一条项目符号都清晰可读。</em></td>
+<td width="50%"><img src="docs/demo/storyboard-audio.png" alt="底边带音频包络带的分镜图"><br>
+<em>G 片段：九格 + 音频带 —— 青色包络、橙色说话区间、黄色切点刻度。一张图 542 token。</em></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/demo/zoom-transition.png" alt="跨 1 秒叠化的三格放大"><br>
+<em><code>video_zoom</code> 看一个 1 秒叠化：前、过渡中、后，三格大图。</em></td>
+</tr>
+</table>
+
 ---
 
 ## 好在哪

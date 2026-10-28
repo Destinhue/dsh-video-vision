@@ -14,6 +14,19 @@ video_zoom        1-9 large cells over a short window
 > Design notes with the measurements behind every decision: [docs/DESIGN.md](docs/DESIGN.md).
 > Numbers against the reference implementation: [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
+<table>
+<tr>
+<td width="50%"><img src="docs/demo/storyboard-text-cards.png" alt="Six text cards, each a cell of one contact sheet"><br>
+<em>Clip D: six slides that differ only in their text block. Six cells, 359 vision tokens, every bullet readable.</em></td>
+<td width="50%"><img src="docs/demo/storyboard-audio.png" alt="Storyboard with an audio envelope band along the bottom"><br>
+<em>Clip G: nine cells plus an audio band — teal envelope, orange speech spans, yellow cut ticks. One image, 542 tokens.</em></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/demo/zoom-transition.png" alt="Three large cells across a one-second crossfade"><br>
+<em><code>video_zoom</code> over a 1 s crossfade: before, mid-transition, after — three cells at full width.</em></td>
+</tr>
+</table>
+
 ---
 
 ## Why it is better
