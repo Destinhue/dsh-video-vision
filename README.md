@@ -134,10 +134,10 @@ the npm roaming prefix, `/usr/local/bin`, an `imageio-ffmpeg` wheel inside
 Verify a machine end to end (no video needed — it builds one):
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 16 checks (17 with ffprobe), builds its own clip
-node bin/selfcheck.mjs --smoke --host   # + validates all three tools against the
-                                        # installed Harness's schema engine (29 checks)
-node --test test/                       # 161 tests, no network, hermetic temp dirs
+node bin/selfcheck.mjs --smoke          # 18 checks (19 with ffprobe), builds its own clip
+node bin/selfcheck.mjs --smoke --host   # 33 checks: validates all four tools against the
+                                        # installed Harness's schema engine
+node --test test/                       # 174 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -189,7 +189,7 @@ video_read input:"C:\clips\lecture.mp4"
 ```
 
 ```
-# lecture.mp4 — read as text · 128 screens · 975 keyframes · 103 s
+# lecture.mp4 — read as text · 56 screens · 975 keyframes · 112 s
 
 ## outline
 00:45 1.1
@@ -206,6 +206,18 @@ It decodes **only keyframes** (`-skip_frame nokey`), clusters them by picture
 change, OCRs the slide area of each cluster once, then merges screens that say
 the same thing. Near-identical slides are collapsed from both ends: OCR noise
 makes exact matching useless, so sameness is a character-bigram similarity test.
+
+What gets thrown away is the recorder, not the lecture: a tab strip is a short
+line near the top edge, a status bar is a short line at the bottom, a chat panel
+is a screen made of very short lines, and a frame where the teacher is writing
+by hand OCRs into a pile of two-character stubs with no sentence in it. Those
+tests are geometric, so they work whatever app the recording came from.
+
+Measured on a real 1:59:54 lecture at 2560x1440: **112 s**, 975 keyframes → 388
+clusters → **56 screens → 10 134 characters**, with all eleven worked examples
+in the outline. The same file through `video_storyboard` takes 163 s and returns
+one 1 024-token sheet whose slide text is unreadable. A 15-minute window reads in
+**16 s**; a 36-second clip in **1.4 s**.
 
 | argument | meaning |
 | --- | --- |

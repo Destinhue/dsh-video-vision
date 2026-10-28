@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.1
+
+The first cut of `video_read` was tuned on one lecture, and the tuning was the
+kind that looks fine on the file you tuned it on. Run against a second lecture it
+kept the recorder's tab strip as if it were a slide title, and it dropped whole
+screens whose text had come out of a hand-written frame.
+
+### Fixed
+
+- **Chrome removal is geometric, not a crop.** The slide area used to be a fixed
+  crop of the frame, learned from the first lecture; on the next one it sliced
+  the first character off a card whose text started at the left edge. The crop is
+  now a conservative top/bottom trim, and the real filtering happens per OCR
+  line: a short line near the top edge is a tab strip, a short line at the bottom
+  is a status bar, a screen made of many very short lines is a chat panel, and a
+  screen with no line long enough to be a sentence is a frame of hand-writing.
+  None of those rules know which app was on screen.
+- **Duplicates are merged twice.** OCR noise makes two readings of the same slide
+  differ; the first pass merges at the documented similarity, a second pass at a
+  looser one catches the pair whose second reading came out degraded.
+- **Frames are grabbed a beat after the keyframe.** A keyframe can land
+  mid-scroll or mid-dissolve, and OCR of a half-drawn screen is garbage that
+  survives every similarity test.
+- The chrome list matches case-insensitively — `Goodnotes` is not `goodnotes`.
+- The screen count in the header was the pre-dedupe count.
+
+### Measured
+
+| | 1.1.0 | 1.1.1 |
+| --- | --- | --- |
+| 1:59:54 lecture, wall clock | 87 s | 112 s |
+| screens quoted | 146 (with tab strips) | 56 |
+| characters | 16 817 | 10 134 |
+| examples found in the outline | 11 | 11 |
+
+The older build quoted more text because it was quoting the recorder too, and
+because it kept several degraded readings of the same slide. The number that
+matters is the last row.
+
+### Tests
+
+174 tests (`node --test test/`), `--smoke` 18/18, `--smoke --host` 33/33.
+
 ## 1.1.0
 
 ### Added

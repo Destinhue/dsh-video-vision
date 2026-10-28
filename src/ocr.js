@@ -51,7 +51,7 @@ export function ocrBackend() {
  *
  * @param {string} dir directory of `*.png` files
  * @param {{signal?: AbortSignal, timeoutMs?: number}} [opts]
- * @returns {Promise<Map<string,string>>} file stem → recognised text (raw, with newlines)
+ * @returns {Promise<Map<string,{text:string,lines:object[],width:number,height:number}>>}
  */
 export async function ocrDirectory(dir, opts = {}) {
   const backend = ocrBackend();
@@ -76,12 +76,40 @@ export async function ocrDirectory(dir, opts = {}) {
   const text = readFileSync(out, 'utf8');
   const parts = text.split(/^== (f\d+) ==\r?\n/gm);
   const map = new Map();
-  for (let i = 1; i < parts.length; i += 2) map.set(parts[i], parts[i + 1]);
+  for (let i = 1; i < parts.length; i += 2) map.set(parts[i], parseSection(parts[i + 1]));
   // anything the engine skipped stays empty rather than missing
   for (const file of readdirSync(dir)) {
     if (!file.endsWith('.png')) continue;
     const stem = file.slice(0, -4);
-    if (!map.has(stem)) map.set(stem, '');
+    if (!map.has(stem)) map.set(stem, { text: '', lines: [], width: 0, height: 0 });
   }
   return map;
+}
+
+/**
+ * A recognised screen: the raw text, and each line with the box it occupied, so
+ * the caller can throw away a tab strip without being told which app drew it.
+ * @param {string} section one `== stem ==` block
+ */
+function parseSection(section) {
+  const lines = [];
+  let width = 0;
+  let height = 0;
+  for (const raw of section.split(/\r?\n/)) {
+    if (!raw) continue;
+    if (raw.startsWith('@@ ')) {
+      const [w, h] = raw.slice(3).split(' ').map(Number);
+      width = w || 0;
+      height = h || 0;
+      continue;
+    }
+    const tab = raw.indexOf('\t');
+    if (tab > 0) {
+      const [x0, y0, x1, y1] = raw.slice(0, tab).split(' ').map(Number);
+      lines.push({ text: raw.slice(tab + 1), x0, y0, x1, y1 });
+    } else {
+      lines.push({ text: raw, x0: 0, y0: 0, x1: 0, y1: 0 });
+    }
+  }
+  return { text: lines.map((l) => l.text).join('\n'), lines, width, height };
 }

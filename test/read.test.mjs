@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cleanOcr, isChrome, textSimilarity, mergeScreens, outline, gridChange, READ_DEFAULTS,
+  cleanOcr, isChrome, isChatter, screenText, textSimilarity, mergeScreens, outline, gridChange,
+  READ_DEFAULTS,
 } from '../src/read.js';
 
 test('cleanOcr puts CJK prose back together', () => {
@@ -92,4 +93,37 @@ test('the documented defaults are the ones in use', () => {
   assert.equal(READ_DEFAULTS.gridHeight, 54);
   assert.ok(READ_DEFAULTS.screenChange > 0 && READ_DEFAULTS.screenChange < 0.2);
   assert.ok(READ_DEFAULTS.maxScreens >= 3);
+});
+
+const NL = String.fromCharCode(10);
+
+test('screenText drops the tab strip at the top and the status bar at the bottom', () => {
+  const rec = {
+    width: 1000,
+    height: 1000,
+    lines: [
+      { text: '第二次讲义 · 2', x0: 20, y0: 20, x1: 200, y1: 60 },
+      { text: '事实上，归纳推理不仅仅是利用数学归纳法，许多时候是以递推的方式解决问题。', x0: 60, y0: 300, x1: 940, y1: 360 },
+      { text: '24 fps', x0: 20, y0: 970, x1: 120, y1: 995 },
+    ],
+  };
+  const text = screenText(rec);
+  assert.ok(text.includes('归纳推理'), 'the paragraph survives');
+  assert.ok(!text.includes('第二次讲义'), 'the tab strip is gone');
+  assert.ok(!text.includes('24 fps'), 'the status bar is gone');
+});
+
+test('a chat panel is chrome, a slide is not', () => {
+  const chat = ['微信', '嗨', '好的', '收到', '嗯', '在吗', '晚点聊'].join(NL);
+  assert.equal(isChatter(chat), true);
+  const slide = [
+    '事实上，归纳推理不仅仅是利用数学归纳法来完成证明，许多时候是以递推或找规律的方式解决问题。',
+    '例题 1．用数学归纳法证明：凸 n 边形的内角和为 (n-2)×180 度。',
+  ].join(NL);
+  assert.equal(isChatter(slide), false);
+});
+
+test('a frame the teacher was scribbling on is not a screen', () => {
+  const scribble = ['亿天小', '一 0', '立去干', '凸到', '。'].join(NL);
+  assert.equal(isChrome(scribble), true);
 });

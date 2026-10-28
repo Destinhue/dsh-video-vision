@@ -116,8 +116,8 @@ ffprobe 同理（`$DSH_FFPROBE_PATH` / `$FFPROBE_PATH`）。
 一条命令自检（不需要现成视频，它会自己生成一个）：
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 16 项检查（装了 ffprobe 则 17 项），自己生成素材
-node bin/selfcheck.mjs --smoke --host   # 另外用已安装的 Harness 自己的 schema
+node bin/selfcheck.mjs --smoke          # 18 项检查（装了 ffprobe 则 19 项），自己生成素材
+node bin/selfcheck.mjs --smoke --host   # 33 项：用已安装的 Harness 自己的 schema 校验四个工具
                                         # 引擎校验三个工具（29 项）
 node --test test/                       # 161 个单元测试，不联网，临时目录隔离
 ```
@@ -169,7 +169,7 @@ video_read input:"C:\clips\lecture.mp4"
 ```
 
 ```
-# lecture.mp4 — read as text · 146 screens · 975 keyframes · 87 s
+# lecture.mp4 — read as text · 56 screens · 975 keyframes · 112 s
 
 ## outline
 00:45 例题1
@@ -180,7 +180,11 @@ video_read input:"C:\clips\lecture.mp4"
 
 只解**关键帧**（`-skip_frame nokey`，比整片解码快约 6 倍），按画面变化聚类，每类只 OCR 一次，
 再把说的是同一件事的屏合并（字符二元组相似度，因为 OCR 噪声让精确比对失效）。
-实测一条 1 小时 59 分的 2K 课件：**87 秒**、975 个关键帧 → 388 类 → 146 屏、**1.68 万字**；
+丢掉的是录屏软件，不是课：标签栏是贴着上边缘的短行，状态栏是贴着下边缘的短行，聊天面板是一屏全是极短的行，
+老师手写的那些帧只会识别成一堆两个字的碎片、没有一句完整的话。这几个判据都是几何位置，跟是哪个软件录的无关。
+
+实测一条 1 小时 59 分的 2K 课件：**112 秒**、975 个关键帧 → 388 类 → **56 屏、1.01 万字**，十一道例题全在目录里；
+15 分钟窗口 **16 秒**，36 秒短片 **1.4 秒**；
 同一条片子走 `video_storyboard` 要 163 秒，且返回的 1024 token 分镜图看不清幻灯片上的字。
 
 OCR 用 Windows 自带引擎（无需下载、无需模型）；其它平台会直接说明不可用，回落到分镜。

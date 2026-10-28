@@ -35,17 +35,20 @@ export const READ_DEFAULTS = {
   // different screens; a slide that is re-shown moves nothing
   screenChange: 0.055,
   // how much of a pair of screens must share text bigrams to be the same screen
-  textSimilarity: 0.62,
+  textSimilarity: 0.55,
   maxScreens: 400,
-  crop: { x: 0.094, y: 0.115, w: 0.812, h: 0.800 },
+  // trim only the recorder's top and bottom bars, keep the full width -- a
+  // slide that starts near the left edge loses its first character otherwise
+  crop: { x: 0.02, y: 0.115, w: 0.96, h: 0.80 },
   grabWorkers: 8,
+  settle: 0.35,
 };
 
 /** strings that belong to the recorder or the meeting app, not the lecture */
 const CHROME = [
   '您正在共享屏幕', '停止共享', '共享设备音频', '说点什么', '录制中', '屏幕共享',
   '腾讯会议', '钉钉', '会议结束后', '个人中心', '我的录制', '成员限制', '入会',
-  'cooanotes', 'ooanotes', '会议设置', '麦克风浮窗', '第二次讲义',
+  'cooanotes', 'ooanotes', 'goodnotes', '会议设置', '麦克风浮窗', '讲义 ·',
 ];
 
 /**
@@ -85,12 +88,63 @@ function stripLeadingJunk(text) {
  */
 export function isChrome(text) {
   if (!text) return true;
+  const bare = text.replace(/\s+/g, '');
+  // a screen with a handful of characters tells the model nothing
+  if (bare.length < 8) return true;
   const han = (text.match(/[\u3400-\u9fff]/g) || []).length;
-  if (han < 10) return true;
-  if (han / text.length < 0.3) return true;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  // numbers, glyph debris and punctuation only
+  if (han + latin < 8) return true;
+  // a real slide carries at least one line long enough to be a sentence; frames
+  // where the teacher is writing by hand OCR into a pile of short stubs
+  let longest = 0;
+  for (const line of text.split('\n')) {
+    const n = (line.replace(/\s+/g, '').match(/[\u3400-\u9fffA-Za-z]/g) || []).length;
+    if (n > longest) longest = n;
+  }
+  if (longest < 12) return true;
   let hits = 0;
-  for (const phrase of CHROME) if (text.includes(phrase)) hits += 1;
-  return hits >= 2 || (hits >= 1 && text.length < 40);
+  const lower = text.toLowerCase();
+  // app names arrive in whatever case the UI uses: 'Goodnotes', 'GoodNotes'
+  for (const phrase of CHROME) if (lower.includes(phrase.toLowerCase())) hits += 1;
+  if (hits >= 2 || (hits >= 1 && text.length < 40)) return true;
+  return isChatter(text);
+}
+
+/**
+ * A chat panel or a meeting control bar reads as many very short lines; a slide
+ * reads as a few long ones. This is what separates them without knowing the app.
+ * @param {string} text cleaned text
+ */
+export function isChatter(text) {
+  const lines = text.split('\n').map((l) => l.replace(/[\s·.。,，、:：;；!！?？'"()（）[\]【】<>-]/g, '')).filter(Boolean);
+  if (lines.length < 6) return false;
+  const tiny = lines.filter((l) => l.length <= 3).length;
+  return tiny / lines.length > 0.45;
+}
+
+/**
+ * Text of one recognised screen, minus the window furniture. A tab strip or a
+ * title bar is a SHORT line near the TOP edge; a status bar is short and at the
+ * bottom. Both rules are geometric, so they hold for any app the user recorded.
+ * @param {{text:string, lines:{text:string,x0:number,y0:number,x1:number,y1:number}[], width:number, height:number}} rec
+ */
+export function screenText(rec) {
+  if (!rec) return '';
+  const H = rec.height || 0;
+  const W = rec.width || 0;
+  const kept = [];
+  for (const line of rec.lines ?? []) {
+    const bare = line.text.replace(/\s+/g, '');
+    if (bare.length < 3) continue;
+    const wide = W ? (line.x1 - line.x0) / W : 1;
+    const top = H ? line.y1 / H : 1;
+    const bottom = H ? line.y0 / H : 0;
+    if (top < 0.13 && wide < 0.55) continue;
+    if (bottom > 0.94 && wide < 0.35) continue;
+    kept.push(line.text);
+  }
+  return cleanOcr(kept.join(String.fromCharCode(10)));
 }
 
 /** character bigram set, ignoring punctuation and whitespace */
@@ -271,7 +325,9 @@ export async function runRead(opts) {
     await Promise.all(Array.from({ length: READ_DEFAULTS.grabWorkers }, async () => {
       while (queue.length) {
         const i = queue.shift();
-        const t = start + (stamps[i] ?? 0);
+        // a keyframe can land mid-scroll or mid-dissolve; go a beat later, when
+        // the page has settled, or the OCR reads a half-drawn screen
+        const t = start + (stamps[i] ?? 0) + READ_DEFAULTS.settle;
         const name = `f${String(Math.round(t * 10)).padStart(6, '0')}`;
         names.set(i, name);
         await new Promise((resolve, reject) => {
@@ -291,16 +347,19 @@ export async function runRead(opts) {
 
     const screens = [];
     for (const i of picked) {
-      const text = cleanOcr(recognised.get(names.get(i)) ?? '');
+      const text = screenText(recognised.get(names.get(i)));
       if (!text || isChrome(text)) continue;
       screens.push({ t: start + (stamps[i] ?? 0), text });
     }
     screens.sort((a, b) => a.t - b.t);
     const merged = mergeScreens(screens);
+    // a second pass at a looser threshold: the leftover duplicates are the ones
+    // whose OCR came out degraded, so their bigrams overlap less
+    const deduped = mergeScreens(merged, { similarity: 0.40 });
     timings.total = Date.now() - wall;
 
     const heads = outline(merged);
-    const head = `# ${input.split(/[\\/]/).pop()} — read as text · ${merged.length} screens · `
+    const head = `# ${input.split(/[\\/]/).pop()} — read as text · ${deduped.length} screens · `
       + `${stamps.length} keyframes · ${timings.total} ms`;
     const body = [head];
     if (heads.length > 2) {
@@ -315,12 +374,12 @@ export async function runRead(opts) {
     const text = body.join('\n');
     return {
       text,
-      screens: merged,
+      screens: deduped,
       outline: heads,
       stats: {
         keyframes: stamps.length,
         clustered: picked.length,
-        screens: merged.length,
+        screens: deduped.length,
         chars: text.length,
         fromScreen: Math.round(text.length / Math.max(1, merged.length)),
       },
