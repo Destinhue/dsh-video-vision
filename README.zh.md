@@ -176,6 +176,19 @@ transcript: subtitle-track · 18 segments
 
 ---
 
+## 致谢
+
+本插件的起点是一个想法：一张画面上烧好格子编号的分镜图，配一份把格子与时间码
+绑定的文本索引，而且不用任何图像库。这个想法来自
+[SAOS-3624/dsh-video-storyboard](https://github.com/SAOS-3624/dsh-video-storyboard)，
+那份文档也是「为什么这样做有效」最清楚的说明。谢谢。
+
+这里是**独立实现**：没有复制它的代码，切点检测、格子预算、解码与合成方式都不同。
+三个工具名、参数形状与清单语法是有意保持兼容的，这样在原插件已安装的地方可以直接
+替换。归属声明见 [NOTICE](NOTICE)。
+
+---
+
 ## 许可
 
 MIT。ffmpeg 的许可见你指向的构建（GPL/LGPL）；本包不附带任何 ffmpeg 二进制。

@@ -215,5 +215,20 @@ bench/               the corpus, its generator, and every script that made a num
 test/                155 unit tests, no network, hermetic temp dirs
 ```
 
+---
+
+## Thanks
+
+The idea this plugin starts from — one contact sheet with burnt-in cell indices,
+plus a text index binding cells to timecodes, put together without an image
+library — comes from
+[SAOS-3624/dsh-video-storyboard](https://github.com/SAOS-3624/dsh-video-storyboard),
+whose documentation is the clearest statement of why it works. Thank you.
+
+This is an independent implementation: no code is copied, and detection, cell
+budgeting, decoding and composition differ. The three tool names, their argument
+shapes and the manifest grammar are kept compatible on purpose, so it can stand
+in where that plugin is already installed. See [NOTICE](NOTICE).
+
 MIT licensed. ffmpeg is GPL/LGPL depending on the build you point it at; this
 package ships none.
