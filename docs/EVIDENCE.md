@@ -27,7 +27,8 @@ corpus, in the same week. Nothing is estimated.
   music bed is no longer called speech (`timeline 140ea562…`). Everything below
   is the post-change battery. Successive idle runs put cold wall at 581–648 ms
   (634 ms is the run quoted below; the fastest was 581, the slowest 648) and
-  cached at 375–411 ms; that spread is the machine, so read the ratios and not
+  cached at **370–411 ms** (the frozen `bench/results/final.json` is one of those
+  runs, at 602 / 375 ms); that spread is the machine, so read the ratios and not
   the milliseconds.
 
 ## Protocol
