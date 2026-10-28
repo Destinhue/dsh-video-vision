@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `bin/install.mjs` no longer trusts a `node_modules` entry that resolves to a
+  *different* checkout — it relinks it, the same way a stale `link:` dependency
+  is repointed. Leaving it alone made edits appear to do nothing.
+- `bin/install.mjs` removes a link with `rmdir`/`unlink` instead of a recursive
+  delete. On Windows a recursive delete follows the junction and empties the
+  checkout it was replacing, which is the one thing an installer must not do.
+  Both paths are covered by `test/install.test.mjs`.
+
 ## 1.0.0
 
 First release. Drop-in replacement for `dsh-video-storyboard` / `dsh-video-understand`
@@ -91,4 +103,4 @@ shapes are unchanged).
   cut scorer against the corpus ground truth.
 - `bin/selfcheck.mjs --smoke --host` runs 29 assertions, including the host's
   own `assertSupportedJsonSchema` and `validateJsonSchemaValue` on every tool.
-- `node --test test/` — 155 tests, no network, hermetic temp dir.
+- `node --test test/` — 159 tests, no network, hermetic temp dir.

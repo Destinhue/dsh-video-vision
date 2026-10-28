@@ -118,7 +118,7 @@ ffprobe 同理（`$DSH_FFPROBE_PATH` / `$FFPROBE_PATH`）。
 node bin/selfcheck.mjs --smoke          # 16 项检查（装了 ffprobe 则 17 项），自己生成素材
 node bin/selfcheck.mjs --smoke --host   # 另外用已安装的 Harness 自己的 schema
                                         # 引擎校验三个工具（29 项）
-node --test test/                       # 155 个单元测试，不联网，临时目录隔离
+node --test test/                       # 159 个单元测试，不联网，临时目录隔离
 ```
 
 `--host` 跑的是 `ctx.tools.register` 真正执行的断言，然后逐个工具真调用一次，

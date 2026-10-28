@@ -130,7 +130,7 @@ Verify a machine end to end (no video needed — it builds one):
 node bin/selfcheck.mjs --smoke          # 16 checks (17 with ffprobe), builds its own clip
 node bin/selfcheck.mjs --smoke --host   # + validates all three tools against the
                                         # installed Harness's schema engine (29 checks)
-node --test test/                       # 155 tests, no network, hermetic temp dirs
+node --test test/                       # 159 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -212,7 +212,7 @@ docs/DESIGN.md       why each threshold exists; mechanisms that were rejected
 docs/REAL-WORLD.md   three untouched screen captures, inspected by eye
 docs/TOKENS.md       how DeepSeek prices an image, and what the grid size costs
 bench/               the corpus, its generator, and every script that made a number
-test/                155 unit tests, no network, hermetic temp dirs
+test/                159 unit tests, no network, hermetic temp dirs
 ```
 
 ---

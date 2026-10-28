@@ -19,7 +19,7 @@
  *
  * Restart the harness afterwards: tools are registered at boot.
  */
-import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync, statSync, realpathSync, rmdirSync, unlinkSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -34,6 +34,28 @@ const value = (name, fallback) => {
   const i = argv.indexOf(`--${name}`);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback;
 };
+
+/**
+ * Delete `p` without ever walking through a link.
+ *
+ * `rmSync(p, { recursive: true })` follows a directory junction / symlink and
+ * deletes the *target's* contents. Running it on the stale node_modules entry
+ * therefore empties the checkout it was pointing at — the opposite of what an
+ * install is allowed to do. Remove the link itself: one `rmdir`/`unlink`.
+ */
+function removeEntry(p) {
+  let linked = false;
+  try {
+    linked = realpathSync(p).toLowerCase() !== resolve(p).toLowerCase();
+  } catch {
+    linked = true; // dangling link: realpath throws, and it must not be walked
+  }
+  if (linked) {
+    try { rmdirSync(p); return; } catch { /* a file symlink needs unlink */ }
+    try { unlinkSync(p); return; } catch { /* fall through to rm for safety */ }
+  }
+  rmSync(p, { recursive: true, force: true });
+}
 
 const dryRun = flag('dry-run');
 const remove = flag('remove');
@@ -67,7 +89,7 @@ if (remove) {
   log(`${hadDep || hadBundle ? 'unmounting' : 'not mounted:'} ${PKG}`);
   if (!dryRun) {
     writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
-    if (existsSync(linkPath)) rmSync(linkPath, { recursive: true, force: true });
+    if (existsSync(linkPath)) removeEntry(linkPath);
   }
   log('restart the harness to drop the tools');
   process.exit(0);
@@ -106,17 +128,42 @@ if (!hadBundle) {
 
 // 3. node_modules entry
 const source = PLUGIN_DIR;
+
+/** Does the existing node_modules entry already resolve to this checkout? */
+const pointsHere = (p) => {
+  try {
+    const here = realpathSync(p);
+    const want = realpathSync(source);
+    return platform() === 'win32'
+      ? here.toLowerCase() === want.toLowerCase()
+      : here === want;
+  } catch {
+    return false;
+  }
+};
+
+const existing = existsSync(linkPath) || (() => { try { statSync(linkPath); return true; } catch { return false; } })();
+// A link that resolves to a *different* checkout is as stale as a missing one:
+// leaving it alone makes every edit in this directory look like a no-op, which
+// is exactly the confusion the dependency repoint above exists to prevent.
+const stale = existing && !copy && !pointsHere(linkPath);
+
+if (dryRun) {
+  if (stale) log(`node_modules/${PKG} would be relinked to this checkout`);
+  else if (!existing) log(`node_modules/${PKG} would be linked to this checkout`);
+  else log(`node_modules/${PKG} already linked`);
+}
+
 if (!dryRun) {
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
   mkdirSync(dirname(linkPath), { recursive: true });
-  const existing = existsSync(linkPath);
   if (existing) {
     let ok = false;
     try { ok = statSync(linkPath).isDirectory() || statSync(linkPath).isSymbolicLink(); } catch { ok = false; }
-    if (!ok) rmSync(linkPath, { recursive: true, force: true });
+    if (!ok) removeEntry(linkPath);
   }
-  if (!existing || copy) {
-    if (existing && copy) rmSync(linkPath, { recursive: true, force: true });
+  if (!existing || copy || stale) {
+    if (existing) removeEntry(linkPath);
     if (copy) {
       // A copy has to be re-copied after every edit; a link stays live.
       execFileSync(platform() === 'win32' ? 'cmd' : 'cp',
@@ -125,10 +172,10 @@ if (!dryRun) {
       log(`copied ${PKG} into node_modules`);
     } else if (platform() === 'win32') {
       execFileSync('cmd', ['/c', 'mklink', '/J', linkPath, source], { stdio: 'ignore' });
-      log(`junction node_modules/${PKG} -> ${source}`);
+      log(`${stale ? 'relinked' : 'junction'} node_modules/${PKG} -> ${source}`);
     } else {
       execFileSync('ln', ['-sfn', source, linkPath], { stdio: 'ignore' });
-      log(`symlink node_modules/${PKG} -> ${source}`);
+      log(`${stale ? 'relinked' : 'symlink'} node_modules/${PKG} -> ${source}`);
     }
   } else {
     log(`node_modules/${PKG} already linked`);

@@ -272,7 +272,7 @@ node bench/final.mjs --reps 3          # latency, geometry, tokens, coverage
 node bench/accuracy.mjs auto           # per-clip cut scoring against ground truth
 node bin/selfcheck.mjs --smoke         # 16 checks, builds its own clip
 node bin/selfcheck.mjs --smoke --host  # + the host's own schema engine (29 checks)
-node --test test/                      # 155 unit tests
+node --test test/                      # 159 unit tests
 ```
 
 `bench/results/final.json` holds the raw records these tables were generated
