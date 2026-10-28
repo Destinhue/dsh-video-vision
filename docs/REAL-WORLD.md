@@ -12,7 +12,7 @@ not redistributed here; the table is what the shipped code produced on them.
 | clip | source | duration | frames | shots | cells | grid | sheet | tokens | wall |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `cs2-3s.mp4` | 1280×960 HEVC, 60 fps screen capture | 3.03 s | 182 | 2 | 2 | 1×2 | 447×699 | 206 | 1.08 s |
-| `capture-34s.mp4` | 1724×1080 H.264, 60 fps desktop capture | 34.07 s | 2 044 | 15 | 15 | 3×5 | 1148×1202 | 872 | 4.06 s |
+| `capture-34s.mp4` | 1724×1080 H.264, 60 fps game capture | 34.07 s | 2 044 | 15 | 15 | 3×5 | 1148×1230 | 872 | 3.31 s |
 | `minecraft-70s.mp4` | 1910×984 H.264, 30 fps game capture | 70.05 s | 2 101 | 25 | 25 | 4×7 | 1393×1263 | 1 024 | 3.35 s |
 
 Wall clock is one run on an i9-14900HX and moves ±30 % with machine load; the
@@ -32,11 +32,14 @@ The audio line also reports `speech 54 %` here — game voice chat lands in the
 same syllable-modulation band as speech, which is the honest resolution limit of
 an 8 kHz envelope plus spectral-centroid test.
 
-**`capture-34s`, 34 s, 60 fps.** 14 cuts in 34 s (24.7 cuts/min — the capture
-toggles a scope, which is a genuine scene change: the scoped view has a black
-circular vignette and a magnified image). 15 cells, 872 tokens. Every cell's
-HUD, money, ammo and radar can be read, and the scoped cells are clearly
-distinguishable from the unscoped ones because the vignette dominates the frame.
+**`capture-34s`, 34 s, 60 fps.** A round of a tactical shooter recorded by the
+player: 14 cuts in 34 s (24.7 cuts/min), 15 cells, 872 tokens. The cuts are not
+edits — they are the player toggling a sniper scope, which replaces a third of
+the frame with a black circular vignette and magnifies the rest. For a storyboard
+that is a real boundary (the view changed completely, and a reader needs both
+states), and five of the fifteen cells are scoped. Every cell's HUD is readable:
+money (`$550` → `$1 850`), health `100`, armour `80`, ammo `10/30` → `8/90`, the
+radar, the kill feed and the on-screen `B` site label.
 Two cells are close to each other (same crouched position either side of a cut) —
 a cut that returns to the same view produces two similar cells, which is correct
 but redundant; the index tells the reader they are different shots, so nothing is
