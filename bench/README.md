@@ -67,8 +67,11 @@ than a mock-up.
 `results/final.json` is the battery quoted in `docs/EVIDENCE.md`;
 `results/snapshot.json` records the sha256 of every `src/*.js` file **at the
 moment the numbers were produced**, so a later reader can tell whether the
-numbers describe the code they are looking at. `final.mjs` re-hashes and prints a
-warning when the tree has drifted from the snapshot.
+numbers describe the code they are looking at:
+
+```bash
+sha256sum src/*.js     # compare with results/snapshot.json
+```
 
 ```bash
 node bench/final.mjs --reps 3
