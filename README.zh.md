@@ -8,6 +8,7 @@ storyboard grid），为 `deepseek-v4.1-flash` 的视觉能力调优。可直接
 video_probe       读容器元数据 + 阅读计划，不解码画面
 video_storyboard  一张分镜图 + 逐格对应的文本索引
 video_zoom        对一个短窗口放大看，1-9 格
+video_read        整条视频读成带时间戳的文本 —— 讲课、幻灯片、录屏
 ```
 
 > 每一项设计决定背后的实测数据见 [docs/DESIGN.md](docs/DESIGN.md)；
@@ -160,6 +161,29 @@ transcript: subtitle-track · 18 segments
 | `cellRange` | 配合 `textOnly`，列出第 a 到第 b 格 |
 
 `video_zoom` 支持同样的窗口参数，外加 `cells`（1-9）与 `at`；只有 1 格时返回原分辨率单帧。
+
+### 读一堂课
+
+```
+video_read input:"C:\clips\lecture.mp4"
+```
+
+```
+# lecture.mp4 — read as text · 146 screens · 975 keyframes · 87 s
+
+## outline
+00:45 例题1
+17:20 例题3
+
+[00:45–01:29] 1 归纳推理 … 1.1 归纳证明 …
+```
+
+只解**关键帧**（`-skip_frame nokey`，比整片解码快约 6 倍），按画面变化聚类，每类只 OCR 一次，
+再把说的是同一件事的屏合并（字符二元组相似度，因为 OCR 噪声让精确比对失效）。
+实测一条 1 小时 59 分的 2K 课件：**87 秒**、975 个关键帧 → 388 类 → 146 屏、**1.68 万字**；
+同一条片子走 `video_storyboard` 要 163 秒，且返回的 1024 token 分镜图看不清幻灯片上的字。
+
+OCR 用 Windows 自带引擎（无需下载、无需模型）；其它平台会直接说明不可用，回落到分镜。
 
 ---
 

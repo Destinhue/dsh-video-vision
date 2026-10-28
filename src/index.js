@@ -17,7 +17,8 @@
 
 import { runStoryboard, runZoom, runProbe } from './pipeline.js';
 import { findFfmpeg, findFfprobe, toolchainReport } from './media.js';
-import { probeSpec, storyboardSpec, zoomSpec, PROBE_TOOL, STORYBOARD_TOOL, ZOOM_TOOL } from './tools.js';
+import { runRead } from './read.js';
+import { probeSpec, storyboardSpec, zoomSpec, readSpec, PROBE_TOOL, STORYBOARD_TOOL, ZOOM_TOOL, READ_TOOL } from './tools.js';
 
 export const name = 'dsh-video-vision';
 export const inject = ['tools', 'attachments'];
@@ -64,6 +65,23 @@ export async function apply(ctx) {
   };
 
   const handlers = {
+    async read(args, exec) {
+      try {
+        const bins = await ensureBinaries();
+        const out = await runRead({
+          ffmpegPath: bins.ffmpegPath,
+          input: args.input,
+          start: args.start ?? 0,
+          end: args.end ?? 0,
+          maxScreens: args.maxScreens,
+          signal: exec?.signal,
+        });
+        return { text: out.text };
+      } catch (error) {
+        return { text: `video error: ${String(error?.message ?? error)}` };
+      }
+    },
+
     async storyboard(args, exec) {
       try {
         const bins = await ensureBinaries();
@@ -129,6 +147,7 @@ export async function apply(ctx) {
   const toolCtx = {
     storyboard: handlers.storyboard,
     zoom: handlers.zoom,
+    read: handlers.read,
   };
 
   const disposers = [];
@@ -148,6 +167,7 @@ export async function apply(ctx) {
   register(probeTool, PROBE_TOOL);
   register(storyboardSpec(toolCtx), STORYBOARD_TOOL);
   register(zoomSpec(toolCtx), ZOOM_TOOL);
+  register(readSpec(toolCtx), READ_TOOL);
 
   // Warm the binary lookup in the background so the first real call is fast.
   findFfmpeg().then((bin) => { state.ffmpeg = bin; }).catch(() => {});

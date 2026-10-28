@@ -63,7 +63,7 @@ async function main() {
     logger: { info() {}, warn() {}, error() {} },
   };
   await plugin.apply(fake);
-  record(registered.length === 3, 'three tools registered', registered.map((s) => s.name).join(', '));
+  record(registered.length === 4, 'four tools registered', registered.map((s) => s.name).join(', '));
   for (const spec of registered) {
     const okSchema = spec?.parameters?.type === 'object' && spec?.output?.schema;
     const okShape = typeof spec.execute === 'function' && typeof spec.output?.render === 'function';

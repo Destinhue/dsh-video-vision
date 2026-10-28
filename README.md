@@ -9,7 +9,14 @@ argument shapes, a different engine underneath.
 video_probe       metadata + a reading plan, no frames decoded
 video_storyboard  one contact sheet + a text index binding every cell to a timecode
 video_zoom        1-9 large cells over a short window
+video_read        the whole video as timestamped TEXT — for lectures, slides, screen recordings
 ```
+
+Picture paths are for film, sport, gameplay, anything where the picture *is* the
+content. When the content is text on the screen, `video_read` wins outright: a
+two-hour lecture becomes ~18k characters of `[mm:ss] text` plus an outline, which
+the model can quote, search and rewrite into notes — where a 1024-token contact
+sheet is unreadable at that size.
 
 > Design notes with the measurements behind every decision: [docs/DESIGN.md](docs/DESIGN.md).
 > Measured behaviour, per-clip tables and error margins: [docs/EVIDENCE.md](docs/EVIDENCE.md).
@@ -174,6 +181,40 @@ top-left; the number burned into each cell is the cell index.
 
 `video_zoom` takes the same window arguments plus `cells` (1–9) and `at`; a
 single cell is returned at full resolution.
+
+### Reading a lecture
+
+```
+video_read input:"C:\clips\lecture.mp4"
+```
+
+```
+# lecture.mp4 — read as text · 128 screens · 975 keyframes · 103 s
+
+## outline
+00:45 1.1
+17:20 例题3
+41:05 例题5
+56:16 例题6
+74:00 例题8
+
+[00:45–01:44] 1.1 归纳证明 事实上，数学归纳法的使用是很灵活的…
+[17:20–18:54] 例题 3 ．A、B 二人玩如下游戏：初始时有两堆硬币，各 2ⁿ 个…
+```
+
+It decodes **only keyframes** (`-skip_frame nokey`), clusters them by picture
+change, OCRs the slide area of each cluster once, then merges screens that say
+the same thing. Near-identical slides are collapsed from both ends: OCR noise
+makes exact matching useless, so sameness is a character-bigram similarity test.
+
+| argument | meaning |
+| --- | --- |
+| `input` | file path, or a direct `http(s)` URL that ffmpeg can fetch |
+| `start` / `end` | read one window only |
+| `maxScreens` | cap on distinct screens read, 3–400 (default 400) |
+
+Needs an OCR engine. The Windows one is built in (no download, no model);
+elsewhere the tool says so and you fall back to `video_storyboard`.
 
 ---
 

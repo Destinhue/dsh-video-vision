@@ -12,6 +12,7 @@ import { runProbe } from './pipeline.js';
 export const PROBE_TOOL = 'video_probe';
 export const STORYBOARD_TOOL = 'video_storyboard';
 export const ZOOM_TOOL = 'video_zoom';
+export const READ_TOOL = 'video_read';
 
 const INPUT_DESC = 'Path to a video file (absolute, or relative to the working directory). A direct http(s) URL to a media file also works when ffmpeg can fetch it; a site page (YouTube, Bilibili) must be downloaded first, because resolving one needs a downloader this plugin does not ship.';
 
@@ -193,6 +194,62 @@ export function zoomSpec(ctx) {
     async execute(args, exec) {
       if (!args?.input) throw new Error('input is required');
       return ctx.zoom(args, exec);
+    },
+  };
+}
+
+export function readSpec(ctx) {
+  return {
+    name: READ_TOOL,
+    description: [
+      'Read a video as a timestamped TEXT document instead of looking at pictures of it.',
+      '',
+      'Use this, not video_storyboard, whenever the point is to understand what is being said or shown so',
+      'you can then write something (notes, a handout, an exam, a summary, slides): lectures, slide decks,',
+      'screen recordings, coding sessions, subtitled talks. Every distinct screen is found, its text is',
+      'recognised, near-identical screens are merged, and you get `[mm:ss] text` lines plus an outline of',
+      'the headings. Two hours of slides becomes ~20k characters at a fraction of the cost of one capped',
+      'picture, and the characters are searchable and quotable in a way pixels are not.',
+      '',
+      'The trade: it reads TEXT, so it is blind to faces, motion, colour, composition and audio. For',
+      'gameplay, film, sport, anything where the picture *is* the content, use video_storyboard.',
+      'Requires an OCR engine (the Windows one is built in); elsewhere this tool says so and you should',
+      'fall back to video_storyboard.',
+      '',
+      'Repeats are cached: asking again for the same file and window costs only the wait.',
+    ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        input: { type: 'string', description: INPUT_DESC },
+        start: { type: 'number', description: 'Start of the window in seconds (default 0).' },
+        end: { type: 'number', description: 'End of the window in seconds (default: end of file).' },
+        maxScreens: {
+          type: 'number',
+          description: 'Cap on distinct screens read, 3-400 (default 400). Lower it for a quick skim.',
+        },
+      },
+      required: ['input'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          text: { type: 'string', description: 'Timestamped transcript of everything on screen, plus an outline.' },
+        },
+      },
+      render(args, value) {
+        return [{ type: 'text', text: value.text }];
+      },
+    },
+    timeoutMs: 600_000,
+    isConcurrencySafe: () => true,
+    presentCall: (args) => ({ card: 'generic', title: 'read video text', kind: 'read', rawInput: args }),
+    async execute(args, exec) {
+      if (!args?.input) throw new Error('input is required');
+      return ctx.read(args, exec);
     },
   };
 }

@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+
+- **`video_read` — read a video as timestamped text.** When the content is text
+  on the screen (lectures, slide decks, screen recordings, coding sessions) a
+  picture of it is the wrong representation: the contact sheet is capped at 1024
+  vision tokens and unreadable at that size, while the text is what a model can
+  quote, search and rewrite. The tool decodes **only keyframes**
+  (`-skip_frame nokey`, ~6x cheaper than a full decode), clusters them by
+  picture change, OCRs the slide area of each cluster once, merges screens that
+  say the same thing (character-bigram similarity, because OCR noise makes exact
+  matching useless), and emits an outline plus `[mm:ss] text` lines.
+
+  Measured on a real 1:59:54 lecture at 2560x1440: **87 s**, 975 keyframes →
+  388 clustered screens → 146 screens, **16.8k characters** — against 163 s for
+  the same file through `video_storyboard`, which returns one 1024-token sheet
+  whose slide text is too small to read.
+
+  OCR uses the Windows engine (`Windows.Media.Ocr`, no download, no model). On
+  other platforms the tool reports that it is unavailable and the picture path
+  remains the answer.
+
+### Changed
+
+- The tool descriptions say which path to use when: `video_read` for text,
+  `video_storyboard`/`video_zoom` when the picture *is* the content.
+
+### Tests
+
+- 171 tests (10 new for the pure parts of `read.js`: OCR cleanup, UI-chrome
+  rejection, bigram similarity, screen merging, outline extraction, block-grid
+  change).
+
 ## 1.0.1
 
 ### Fixed
