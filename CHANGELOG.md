@@ -40,9 +40,8 @@ shapes are unchanged).
   at 6 s per cell with a floor of 3.
 
 ### Docs and evidence
-- `docs/EVIDENCE.md`: measured comparison against `dsh-video-storyboard` 0.3.0
-  on the same corpus, cold and cached, with per-clip cut and coverage tables and
-  a threats-to-validity section.
+- `docs/EVIDENCE.md`: measured latency, sheet geometry, token cost, per-clip cut
+  and coverage tables, edge cases and a threats-to-validity section.
 - `docs/REAL-WORLD.md`: three unmodified captures from the machine, with what
   was actually readable in the rendered sheets.
 - `docs/DESIGN.md`: why each threshold exists, including the clips that forced
@@ -88,8 +87,8 @@ shapes are unchanged).
 ### Evidence
 - Nine synthetic clips with frame-exact ground truth (`bench/corpus`), a
   13-minute composite, and three unmodified screen captures from this machine.
-- `bench/final.mjs` (ours) and `bench/ab/run-upstream.mjs` (reference 0.3.0 at
-  `2a6fdc6`) share a token estimator and a 0.5 s cut scorer.
+- `bench/final.mjs` and `bench/accuracy.mjs` share a token estimator and a 0.5 s
+  cut scorer against the corpus ground truth.
 - `bin/selfcheck.mjs --smoke --host` runs 29 assertions, including the host's
   own `assertSupportedJsonSchema` and `validateJsonSchemaValue` on every tool.
 - `node --test test/` — 155 tests, no network, hermetic temp dir.

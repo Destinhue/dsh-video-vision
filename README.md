@@ -12,7 +12,7 @@ video_zoom        1-9 large cells over a short window
 ```
 
 > Design notes with the measurements behind every decision: [docs/DESIGN.md](docs/DESIGN.md).
-> Numbers against the reference implementation: [docs/EVIDENCE.md](docs/EVIDENCE.md).
+> Measured behaviour, per-clip tables and error margins: [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 <table>
 <tr>
@@ -59,41 +59,40 @@ inputs, one output each), three processes in flight — a 20-cell sheet costs 2-
 process launches instead of 60.
 
 **No prose in results.** Reading instructions live in the tool description,
-which sits in the cached prompt prefix and is paid once; the upstream design
-repeats ~700 tokens of guidance in every result. `textOnly` + `cellRange` pages
-a long film at zero image cost, and repeat calls are cached.
+which sits in the cached prompt prefix and is paid once; the result itself is
+only the index and the image. `textOnly` + `cellRange` pages a long film at zero
+image cost, and repeat calls are cached.
 
 ---
 
 ## Numbers
 
-Nine clips, frame-exact ground truth, same machine, same week, both pipelines
-driven as modules (`bench/final.mjs` and `bench/ab/run-upstream.mjs`). Full
-protocol, per-clip tables and threats to validity: [docs/EVIDENCE.md](docs/EVIDENCE.md).
+Nine clips, frame-exact ground truth, one machine, driven directly as a module
+(`bench/final.mjs`). Protocol, per-clip tables and threats to validity:
+[docs/EVIDENCE.md](docs/EVIDENCE.md).
 
-| | dsh-video-storyboard 0.3.0 | here |
-| --- | --- | --- |
-| wall clock, cold | 1 450 ms | **634 ms** (2.3x) |
-| wall clock, cached | 1 168 ms | **411 ms** (2.8x) |
-| moments shown | 36 | **67** |
-| vision tokens | 3 644 | 3 648 |
-| tokens per covered moment | 165.6 | **54.5** (3.0x cheaper) |
-| cut F1 (0.5 s) | 0.720 | **0.872** |
-| shot coverage | 0.766 | **0.963** |
-| text in the result | 8 356 chars | **4 292 chars** |
+| | value |
+| --- | --- |
+| wall clock, cold | **634 ms** (581-648 ms over runs) |
+| wall clock, cached | **411 ms** (370-411 ms) |
+| moments shown | **67** cells |
+| vision tokens | 3 648 |
+| tokens per shown moment | **54.5** |
+| cut F1 (micro, 0.5 s) | **0.872** |
+| cut recall / precision | 1.000 / 0.774 |
+| shot coverage | **0.963** |
+| text in the result | 477 chars |
 
-Same money, 1.9x more of the video, and half the prose.
+On a **13-minute** film one call returns **one** image: 28 cells at 331x186,
+1 024 tokens, 6.2 s, ~1 353 tokens of context including the index. Full table
+in EVIDENCE.md.
 
-On a **13-minute** film the gap widens, because length is where the two designs
-diverge: 18.1 s → **6.2 s**, two sheets → **one**, 265x145 tiles → **331x186**,
-and 1 511 → **1 353** tokens of context for the same question (the manifest is
-1 315 chars instead of 2 787). Full table in EVIDENCE.md.
-
-Where the reference
-scores better (E, a 1 s crossfade we call one dissolve boundary) and where the
-ground truth is wrong for both (G, H) are spelled out in EVIDENCE.md rather than
-rounded away. Real-world spot checks with screenshots of what was actually
-readable: [docs/REAL-WORLD.md](docs/REAL-WORLD.md).
+Where this plugin is weak is stated there rather than rounded away: a 1 s
+crossfade is reported as one dissolve boundary and scored as a false positive
+against a ground truth that calls it zero cuts, and two clips in the corpus
+change their whole frame between sections, so they read as cuts. Real-world spot
+checks with screenshots of what was actually readable:
+[docs/REAL-WORLD.md](docs/REAL-WORLD.md).
 
 ---
 
@@ -208,7 +207,7 @@ src/manifest.js  the text index
 src/timeline.js  audio envelope, speech spans, subtitle extraction
 src/media.js     ffmpeg/ffprobe discovery, probing, process helpers
 
-docs/EVIDENCE.md     measured against the reference implementation, with scripts
+docs/EVIDENCE.md     measured behaviour, with the scripts that produced it
 docs/DESIGN.md       why each threshold exists; mechanisms that were rejected
 docs/REAL-WORLD.md   three untouched screen captures, inspected by eye
 docs/TOKENS.md       how DeepSeek prices an image, and what the grid size costs

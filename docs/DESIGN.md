@@ -216,7 +216,8 @@ actually reads. Rules:
   showing the film.
 - **No prose.** Reading instructions live in the tool description, which is part
   of the cached prompt prefix and is paid once, not in every result. The
-  upstream design spends ~700 tokens per call re-explaining how to read its own
+  the design that repeats its reading rules in every result spends ~700 tokens
+  per call re-explaining how to read its own
   output; this one spends zero, and the description is shorter than the prose it
   replaced.
 - **`=cell N` for duplicates.** When a merged group's picture repeats one

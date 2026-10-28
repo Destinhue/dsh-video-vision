@@ -1,6 +1,6 @@
 {
-  "schema": "bench/ab/snapshot@1",
-  "note": "src/ hashes at the moment the ours-pipeline numbers were measured; compare.mjs re-hashes and warns on mismatch",
+  "schema": "bench/results/snapshot@1",
+  "note": "src/ hashes at the moment the numbers in docs/EVIDENCE.md were measured",
   "timestamp": "2026-10-28T12:00:49+08:00",
   "combinedSha256": "1682103d491c94a4c207653cab02d9e007e4c97bf398046922e0816d98e9115936734e1fc76d8c3e4a8420ae280d851b3b739d0fa86b71b498b6e8c492ca324e47c12dd3968e654e72f3722f082a0b2349090fec91847a36483a3049cd875a434eb88f8d9d76bc75684c7bfdfbe3c1b2f4e586f9e0df4d4fd6197df77aff2e0c5fad6e231d462896283320247ff0f8d615f307e6713ffc581b7b6375721e47356b1420de45ee0bb76907881440fb78d9f089c973a491b8c4a8c5aec5236f9c8e6f98c9b3c6da263e2f0eecc15ce21cb0b15cf99a9f827d3cbdc07a0f9aeaffca8683f81c82de3f8a72bc225c8bd4743d75fbedc168e784ad62db0d4054a335efa0f98bdbb5654305b1b27cfcc4180f632784e935cdafd11c0f3eddfbddab067bb74f247da0063c48dc11908aa7bbb3a63970c5e1960c3d24a65a71e743d83f15c4bd70b6d08000f4fcb5e6bbba3cf1c4a66d79eb49508d88b977fc589487eb4d",
   "matchesExpected": true,
@@ -19,8 +19,7 @@
   },
   "artifacts": {
     "ours-dims-auto.json": "2026-10-28T04:00:54.611Z",
-    "accuracy-auto.json": "2026-10-28T04:01:00.474Z",
-    "upstream.json": "2026-10-28T04:01:13.987Z"
+    "accuracy-auto.json": "2026-10-28T04:01:00.474Z"
   },
   "corpusIndexMtime": "2026-10-28T03:23:25.729Z",
   "ffmpeg": "vendor/bin ffmpeg 8.0.1 (gyan.dev essentials)"

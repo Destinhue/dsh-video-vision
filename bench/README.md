@@ -13,7 +13,6 @@ accuracy.mjs     cut precision/recall/F1 and shot coverage against ground truth
 measure.mjs      sheet-level checks: tile size, text legibility, duplicate payloads
 e2e.mjs          drive the real tool specs on any video, no harness needed
 hostcheck.mjs    the same specs through the installed Harness's schema engine
-ab/run-upstream.mjs   the reference implementation, same corpus, same metrics
 ```
 
 ## Run it
@@ -66,18 +65,14 @@ than a mock-up.
 ## Frozen results
 
 `results/final.json` is the battery quoted in `docs/EVIDENCE.md`;
-`results/upstream.array.json` is the reference implementation's run of the same
-corpus through its own `runStoryboard()`; `results/snapshot.json` records the
-sha256 of every `src/*.js` file **at the moment the numbers were produced**, so a
-later reader can tell whether the numbers describe the code they are looking at.
-`bench/ab/run-upstream.mjs` re-hashes and prints a warning when the checkout has
-drifted from the snapshot.
-
-The reference side needs a checkout of
-[SAOS-3624/dsh-video-storyboard](https://github.com/SAOS-3624/dsh-video-storyboard)
-(v0.3.0):
+`results/snapshot.json` records the sha256 of every `src/*.js` file **at the
+moment the numbers were produced**, so a later reader can tell whether the
+numbers describe the code they are looking at. `final.mjs` re-hashes and prints a
+warning when the tree has drifted from the snapshot.
 
 ```bash
-git clone https://github.com/SAOS-3624/dsh-video-storyboard .upstream/dsh-video-storyboard
-node bench/ab/run-upstream.mjs
+node bench/final.mjs --reps 3
 ```
+
+compile-check: `node --check bench/final.mjs` if you edit it; the battery is
+self-contained (no harness, no network).

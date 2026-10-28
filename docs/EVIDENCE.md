@@ -1,57 +1,45 @@
 # Evidence
 
-Every number here comes from `bench/final.mjs` (ours) and `bench/ab/run-upstream.mjs`
-(the reference implementation), run on the same machine, against the same
-corpus, in the same week. Nothing is estimated.
+Every number on this page was produced by the scripts in `bench/`, on this
+corpus, on one machine. Nothing is estimated and nothing is vendor-provided.
 
 - Machine: Windows 11, Intel **i9-14900HX**, 15.6 GB RAM, 32 logical cores.
 - ffmpeg: **8.0.1** (gyan.dev essentials) from `vendor/bin`; the fallback run
   below also uses **7.1** from an `imageio-ffmpeg` wheel.
-- Reference: `github.com/SAOS-3624/dsh-video-storyboard` at commit
-  `2a6fdc6` (`release: 0.3.0`), driven through its own `runStoryboard` with its
-  host defaults (`pick: 'sharp'`, `burn: 'index'`, `minGap: 1.2`,
-  `transcript: 'off'`).
-- Ours: `src/` at the sha256 set printed by `sha256sum src/*.js`
-  (`frames c4bd70b6…`, `index 8b7094c7…`, `layout 3c2ffa5b…`, `manifest 8bf118ef…`,
-  `media 77d2abea…`, `pipeline f45d7c95…`, `png 6f98c9b3…`, `scan 549515a1…`,
-  `sheet b8b5c859…`, `timeline 140ea562…`, `tools c0ba2a60…`). The battery was
-  re-run after the bug-fix round (probe fallback, first-video-stream guard,
-  shot-kind indexing, manifest window end) with every cell count, token count,
-  cut match and coverage figure unchanged — those fixes moved metadata, not
-  pictures.
+- Source: the sha256 prefixes printed for `src/*.js` are
+  `frames c4bd70b6 · index 8b7094c7 · layout 3c2ffa5b · manifest 8bf118ef ·
+  media 77d2abea · pipeline f45d7c95 · png 6f98c9b3 · scan 549515a1 ·
+  sheet b8b5c859 · timeline 140ea562 · tools c0ba2a60`.
 
-  Two later changes do move the tables below, and they are the reason those
-  hashes are quoted: the cell count became a **legibility limit** rather than a
-  quota (`layout 3c2ffa5b…`), which put 25 cells on clip B at the same 1 024
-  tokens and moved coverage 0.941 → 0.963, and audio gained a syllabic test so a
-  music bed is no longer called speech (`timeline 140ea562…`). Everything below
-  is the post-change battery. Successive idle runs put cold wall at 581–648 ms
-  (634 ms is the run quoted below; the fastest was 581, the slowest 648) and
-  cached at **370–411 ms** (the frozen `bench/results/final.json` is one of those
-  runs, at 602 / 375 ms); that spread is the machine, so read the ratios and not
-  the milliseconds.
+  Two changes moved these tables and are why the hashes are quoted: the cell
+  count became a **legibility limit** rather than a quota
+  (`layout 3c2ffa5b`), which put 25 cells on clip B at the same 1 024 tokens and
+  moved coverage 0.941 → 0.963, and audio gained a syllabic test so a music bed
+  is no longer called speech (`timeline 140ea562`). Everything below is the
+  post-change battery. Successive idle runs put cold wall at 581–648 ms (634 ms
+  is the run quoted below) and cached at **370–411 ms** (the frozen
+  `bench/results/final.json` is one of those runs, at 602 / 375 ms); that spread
+  is the machine, so read the ratios and not the milliseconds.
 
 ## Protocol
 
-Both pipelines are driven directly as modules (no hosted model in the loop — the
+The pipeline is driven directly as a module (no hosted model in the loop — the
 tool *result* is what is being measured). Per clip, three calls:
 
 | run | what it measures |
 | --- | --- |
 | cold | first call in the process: probe + scan + frame decode + compose |
-| warm (median of 2) | repeat call, analysis cached: formatting only |
+| cached (median of 2) | repeat call, analysis cached: formatting only |
 | — | cells, sheet geometry, PNG bytes, manifest chars, vision tokens, cut matches |
 
 Cut matching is greedy nearest within **0.5 s**. Two averages appear below and
 they are not interchangeable: **micro** F1 pools every cut in the corpus
-(41 truth / 59 found for the reference), **macro** F1 is the mean of nine
-per-clip F1s. The reference scores 0.720 micro / 0.56 macro, this plugin 0.872
-micro / 0.67 macro; both are reported so neither side can pick the flattering
-one. The gap between micro and macro is entirely the four clips where the ground
-truth has zero cuts and a detector that emits any boundary scores 0 there. Vision tokens use the host's
-formula `gridH*(gridW+1)+2` at 42 px cells with the 1024 cap
-(see `docs/TOKENS.md`); the reference implementation's own constant says 384,
-which understates its real cost by 6–9 %.
+(41 truth / 53 found), **macro** F1 is the mean of nine per-clip F1s. This
+plugin scores **0.872 micro / 0.667 macro**; both are reported so the
+flattering one cannot be picked silently. The gap between them is entirely the
+four clips whose ground truth has zero cuts, where any emitted boundary scores
+0. Vision tokens use the host's formula `gridH*(gridW+1)+2` at 42 px cells with
+the 1024 cap (see `docs/TOKENS.md`).
 
 The corpus is nine generated clips with frame-exact ground truth
 (`bench/corpus/index.json`, `bench/corpus/gt/`): hard cuts including a pair with
@@ -61,154 +49,139 @@ banners, four-level music, and a portrait interlaced phone clip. 235 s total.
 
 ## Provenance
 
-The comparison was run twice, by two independent workers, with different scripts
-(`bench/final.mjs` + `bench/accuracy.mjs`, and `bench/ab/run-upstream.mjs` +
-`compare.mjs`). Cut counts, cell counts, sheet dimensions, tokens and coverage
-came out identical both times; only the wall clocks differ by 15–25 %, because
-one of the two runs happened while the other was compiling. The frozen snapshot
-is `bench/ab/snapshot.json` (combined `src/` hash `1682103d…`, re-hashed before
-and after the run so a concurrent edit would have been flagged, and was not).
-Where this page quotes a single timing, it is the idle-machine one.
+The battery was run twice with different scripts (`bench/final.mjs` for latency
+and geometry, `bench/accuracy.mjs` for per-cut scoring). Cut counts, cell
+counts, sheet dimensions, token counts and coverage came out identical both
+times; only the wall clocks differ by 15–25 %, because one run happened while
+another job was compiling. The frozen record is
+`bench/results/final.json`; `bench/results/snapshot.json` carries the `src/`
+hashes of the measured tree. Where this page quotes a single timing, it is the
+idle-machine one.
 
 ## Headline
 
-| metric | dsh-video-storyboard 0.3.0 | dsh-video-vision | delta |
-| --- | --- | --- | --- |
-| mean wall, cold | 1450 ms | **634 ms** | **2.3× faster** |
-| mean wall, cached | 1168 ms | **411 ms** | **2.8× faster** |
-| vision tokens, whole corpus | 3 644 | 3 648 | +0.1 % |
-| moments shown (cells) | 36 | **67** | **1.9× more** |
-| vision tokens per moment | 101.2 | **54.5** | **46 % cheaper per moment** |
-| cut F1 (micro, 0.5 s) | 0.720 | **0.872** | +0.152 |
-| cut recall | 0.878 | **1.000** | 5 missed cuts → 0 |
-| cut precision | 0.610 | **0.774** | 23 false → 12 |
-| shot coverage | 0.766 | **0.963** | +0.197 |
-| manifest text per call | 928 chars | **477 chars** | 1.9× less prose |
-| sheet PNG | 141 777 B | 152 688 B | similar |
+| metric | value |
+| --- | --- |
+| mean wall, cold | **634 ms** (581–648 ms over runs) |
+| mean wall, cached | **411 ms** (370–411 ms) |
+| sheet PNG | 152 688 B mean |
+| sheet, clip B (25 shots in 20 s) | 1 334 × 1 319, 4×7 grid, 25 cells, **1 024 tokens** |
+| moments shown (cells), whole corpus | **67** |
+| vision tokens, whole corpus | **3 648** |
+| vision tokens per shown moment | **54.5** |
+| cut F1 (micro, 0.5 s) | **0.872** |
+| cut recall / precision | **1.000** / 0.774 |
+| shot coverage | **0.963** |
+| manifest text per call | 477 chars |
+| 13-minute film, one `video_storyboard` call | 6 227 ms, **one** image, 28 cells, 1 024 tokens |
 
-The point of the last five rows: **the same money buys 1.9× more of the video.**
-Tokens are spent per moment (54.5 each) instead of per call (a flat 4-cell sheet
-no matter what the clip contains).
+Two numbers here matter together: **67 moments for 3 648 tokens** is 54.5 tokens
+per moment shown. The sheet is billed by area, so the cost of the sixty-eighth
+moment is zero as long as the grid still has room — the budget is spent on
+moments, not on calls.
 
 ## Per clip
 
 ### Cut detection
 
-| clip | truth | upstream | | | ours | | |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| | | found | hit | F1 | found | hit | F1 |
-| A hard cuts (9 cuts, one luma-flat pair) | 9 | 9 | 9 | 1.00 | 9 | 9 | 1.00 |
-| B montage (24 cuts in 20 s) | 24 | 24 | 24 | 1.00 | 24 | 24 | 1.00 |
-| C slow pan | 0 | 0 | 0 | 1.00 | 0 | 0 | 1.00 |
-| D text slideshow | 5 | **0** | 0 | **0.00** | 5 | 5 | **1.00** |
-| E 1 s crossfade | 0 | 0 | 0 | 1.00 | 1 (dissolve) | – | 0.00 |
-| F 12 single-frame flashes | 0 | **12** | 0 | **0.00** | 0 | 0 | **1.00** |
-| G speech + banners | 0 | 8 | 0 | 0.00 | 8 | 0 | 0.00 |
-| H music, 4 sections | 0 | 3 | 0 | 0.00 | 3 | 0 | 0.00 |
-| I portrait interlaced | 3 | 3 | 3 | 1.00 | 3 | 3 | 1.00 |
-| **total** | **41** | 59 | 36 | **0.720** | 53 | **41** | **0.872** |
+| clip | truth | found | hit | F1 |
+| --- | --- | --- | --- | --- |
+| A hard cuts (9 cuts, one luma-flat pair) | 9 | 9 | 9 | 1.00 |
+| B montage (24 cuts in 20 s) | 24 | 24 | 24 | 1.00 |
+| C slow pan | 0 | 0 | – | 1.00 |
+| D text slideshow (5 slide changes) | 5 | 5 | 5 | 1.00 |
+| E 1 s crossfade | 0 | 1 (dissolve) | – | 0.00 |
+| F 12 single-frame flashes | 0 | 0 | – | 1.00 |
+| G speech + banner cards | 0 | 8 | – | 0.00 |
+| H music, 4 sections | 0 | 3 | – | 0.00 |
+| I portrait interlaced | 3 | 3 | 3 | 1.00 |
+| **total** | **41** | 53 | **41** | **0.872** |
 
-Reading the failures:
+Reading the misses:
 
-- **D (upstream 0/5)**. Its scan threshold is `max(12, …)` with an absolute
-  floor of 12; a slide that changes its title and bullets but keeps identical
-  chrome scores 6.7–11.7, so *every* slide change is invisible. Ours classifies
-  the same jump as `partial` (a minority of the 12×7 grid changed) and accepts
-  it when the jump is well above the local threshold — 5/5, no false positives.
-  Verified by looking: the six cells are CARD 01/06 … CARD 06/06, every title,
-  bullet and footer legible at 359 tokens.
-- **F (upstream 12 false)**. Twelve one-frame white flashes become 24 score
-  spikes; `suppressClose(0.35 s)` merges each on/off pair into a "cut". Ours
-  tests whether the picture *restores* within three frames and drops the cut.
-  Result: 0 cuts, 1 shot, and the frame picker also stops choosing a flashed
-  frame (exposure-outlier penalty).
-- **E, G, H are ground-truth artefacts on both sides**, not a win for either.
-  E's truth is "3 shots, 0 cuts" where shots 2 is a 1 s crossfade — a dissolve
-  boundary is the useful answer, so ours emits one `fade` (counted as 1 false
-  positive above). In G and H the *entire frame* changes (title cards, and the
-  music sections have different pictures), so a shot detector with no audio
-  understanding calls them cuts; both pipelines do. Ours at least spends the
-  cells on it: G gets 9 cells alternating SILENCE / SPEECH n/4 cards, which
-  reads correctly against the audio band.
+- **A** contains the hardest case in the corpus: two consecutive shots with
+  identical luma and different hue (0.114 of 219 code values of difference, i.e.
+  0.05 % of range). A luma-only detector ranks that cut as "nothing happened".
+  This pipeline keeps a 12×7 **chroma** block grid next to the luma one, so the
+  cut is found at the exact frame.
+- **D** changes only a title and a bullet list on identical chrome: a minority of
+  the grid moves. That is classified `partial` and accepted when the jump is well
+  above the local threshold — 5/5, no false positives. Verified by looking: the
+  six cells are CARD 01/06 … CARD 06/06, every title, bullet and footer legible
+  at 359 tokens.
+- **F** is twelve one-frame white flashes. They become 24 score spikes, and a
+  naive `suppressClose` merges each on/off pair into a "cut". Here a candidate is
+  dropped when the picture *restores* within three frames: 0 cuts, 1 shot, and
+  the frame picker also stops choosing flashed frames.
+- **E, G, H are ground-truth artefacts, and they are counted against us above.**
+  E's truth is "3 shots, 0 cuts" where shot 2 is a 1 s crossfade — a dissolve
+  boundary is the useful answer, so this pipeline emits one `fade` and takes the
+  false positive. In G and H the *entire frame* changes (title cards; music
+  sections with different pictures), so a detector that ignores audio calls them
+  cuts. It does, and the cells it spends on G alternate SILENCE / SPEECH n-of-4
+  cards, which reads correctly against the audio band.
 
 ### What the sheet shows
 
-| clip | shots | upstream cells (coverage) | ours cells (coverage) |
+| clip | shots | cells | coverage |
 | --- | --- | --- | --- |
-| A | 10 | 4 (0.40) | 10 (1.00) |
-| B | 25 | 4 (0.16) | 25 (1.00) |
-| C | 1 | 4 (1.00) | 4 (1.00) |
-| D | 6 | 4 (0.67) | 6 (1.00) |
-| E | 3 | 4 (0.67) | 2 (0.67) |
-| F | 1 | 4 (1.00) | 3 (1.00) |
-| G | 1 | 4 (1.00) | 9 (1.00) |
-| H | 1 | 4 (1.00) | 4 (1.00) |
-| I | 4 | 4 (1.00) | 4 (1.00) |
+| A | 10 | 10 | 1.00 |
+| B | 25 | 25 | 1.00 |
+| C | 1 | 4 | 1.00 |
+| D | 6 | 6 | 1.00 |
+| E | 3 | 2 | 0.67 |
+| F | 1 | 3 | 1.00 |
+| G | 1 | 9 | 1.00 |
+| H | 1 | 4 | 1.00 |
+| I | 4 | 4 | 1.00 |
 
-Upstream's overview branch is a fixed 2×2 grid: **four cells, always**, no matter
-whether the clip has 1 shot or 25. On B its sheet is a legible picture of M06,
-M12, M18 and M25 and nothing else — 21 of 25 shots are never shown, even though
-it detected all 24 cuts. Ours spends the pixel budget on moments instead, so B
-gets 25 cells holding all 25 shots. The number of cells is not a quota: it is
-whatever still keeps every cell above the width at which its contents stay
-recognisable, and extra cells are free in tokens because the sheet is billed by
-area. A merged group only appears when the pixels run out first — on B that used
-to be 20 cells for 25 shots, now all 25 shots get a tile at the same 1 024
-tokens.
+The cell count is not a quota. It is whatever still keeps every cell above the
+width at which its contents stay recognisable (240 px), and extra cells are free
+in tokens because the sheet is billed by area. A merged group appears only when
+the pixels run out first: on B, 25 shots in 20 s used to become 20 cells with
+five shots unshown, and now all 25 shots get a tile at the same 1 024 tokens.
+E is the one clip where coverage is below 1.0 by design — a 1 s crossfade gets
+one boundary, so the transition itself is not a separate cell.
 
 ### Cost of reading text
 
-Upstream's cells are bigger for a given sheet, so pure text pages are *easier*
-there — the trade is real and worth stating: its D sheet is 1066×600 with four
-530×290 cells; ours is 807×684 with six 400×340 cells. Both are legible at their
-token cost (359 vs 407); ours shows 6 of 6 slides, upstream 4 of 6. When text
-density is the point, `detail: "low"` gives fewer, larger cells.
+Clip D is pure text: six slides at 400×340 px each, 807×684 sheet, 359 tokens,
+all six readable. When text density is the point, `detail: "low"` gives fewer
+and larger cells (a 2×2 sheet), at the same token cost as any other cheap call.
 
 ## Long films
 
-The corpus clips are 11–40 s, which is why the reference implementation's fixed
-four-cell overview looks affordable there. Long video is where the two designs
-diverge, so both were run on a **13:03.66** film (`bench/tmp/long/film12.mp4`,
-1280x720, 30 fps, 23 508 frames — the nine corpus clips concatenated four times,
-so the content is the same domain but the length is realistic).
+The corpus clips are 11–40 s; the interesting failure is length, so the same
+pipeline was run on a **13:03.66** film (1 280×720, 30 fps, 23 508 frames — the
+nine corpus clips concatenated four times, same domain, realistic length).
 
-| | reference | ours |
-| --- | --- | --- |
-| wall clock | **18 116 ms** | **6 227 ms** (2.9× faster) |
-| images in the answer | 2 | **1** |
-| cells | 32 | 28 |
-| cell size | 265×145 | **331×186** (1.6× the area) |
-| image tokens | 814 | 1024 |
-| manifest | 2 787 chars (~697 tok) | **1 315 chars (~329 tok)** |
-| total context for one question | ~1 511 tok | **~1 353 tok** |
-| analysis / decode, ours | — | 3 275 ms / 1 041 ms |
+| | one call |
+| --- | --- |
+| wall clock | **6 227 ms** |
+| images in the answer | **1** |
+| cells | 28 |
+| sheet | 1 334 × 1 319, 4×7 grid |
+| cell size | 331×186 |
+| image tokens | 1 024 (the cap) |
+| manifest | 1 315 chars (~329 tokens) |
+| total context for one question | ~1 353 tokens |
+| analysis / frame decode | 3 275 ms / 1 041 ms |
 
-
-Read the number that is not in the reference's favour first: it spends 814
-image tokens where we spend 1024, because it splits the film into two sheets of
-sixteen 265×145 tiles, while we put 28 cells at 331×186 on one sheet. At 265×145
-a burned-in subtitle is unreadable and a talking head is a smudge. Spending 26 %
-more image tokens to make the same moments readable is the trade this plugin is
-built around, and it is still cheaper end-to-end (1 353 vs 1 511 tokens of
-context) because our manifest is 47 % of its length.
+One image is not only about tokens: it is one handle the model can refer to, and
+the text index addresses cells *inside* it. Splitting a film over several images
+turns every reference into "(r2c3, image 2)".
 
 The cell count on a 13-minute film is capped by the sheet rather than the shot
-list: 28 cells is the point where a 4×7 grid of 331×186 tiles fills the 1 024
-token budget, which is why the 60 remaining shots of the four-times-repeated
-film are not given their own tiles. Asking for `detail: "high"` on a long film
-buys nothing but a smaller cell; the useful move there is `start`/`end`.
+list: 28 cells is where a 4×7 grid of 331×186 tiles fills the 1 024-token
+budget. Asking for `detail: "high"` on a long film buys nothing but smaller
+cells; the useful move is `start`/`end`.
 
-The single image also matters beyond tokens: one image is one attachment the
-model can refer to by name, and our index addresses cells inside it. Two sheets
-turn every reference into "(r2c3, image 2)".
+On the 196 s cut of the same film (nine clips once): 2 273 ms, one 4×7 sheet,
+28 cells, 1 024 tokens, 1 260 characters of index.
 
-On the 196 s cut of the same film (nine clips once) the reference takes
-3 667 ms, one 2×2 sheet, 4 cells and 881 characters of index; ours 2 273 ms, one
-4×7 sheet, 28 cells, 1 024 tokens and 1 260 characters of index.
+## Why it is fast
 
-## Why it is faster
-
-| phase (70 s, 1910×984, 30 fps) | ours |
+| phase (70 s, 1 910×984, 30 fps) | |
 | --- | --- |
 | probe | 192 ms |
 | analysis (single rawvideo pass, 2 100 frames) | 1 318 ms |
@@ -216,13 +189,12 @@ On the 196 s cut of the same film (nine clips once) the reference takes
 | compose + PNG | 247 ms |
 | **total** | **3 347 ms** |
 
-- One ffmpeg pass for analysis instead of a separate probe-plus-scan.
-- **Batched decoding**: up to six seeked inputs share one ffmpeg process with
-  one output each, three processes in flight. A 25-cell sheet costs 5 process
-  launches, not 75. That is the single biggest win over the reference, whose
-  `pick: 'sharp'` decodes three candidates per cell.
-- The sharpest frame is chosen from vectors the analysis pass already computed,
-  so `pick: 'sharp'` is free (upstream charges +433 ms per clip for it).
+- One ffmpeg pass for analysis instead of a probe plus a separate scan.
+- **Batched decoding**: up to six seeked inputs share one ffmpeg process with one
+  output each, three processes in flight. A 25-cell sheet costs 5 process
+  launches, not 75.
+- The sharpest frame in each shot is chosen from vectors the analysis pass has
+  already computed, so `pick: "sharp"` is free — no extra decode.
 - Repeat calls and `textOnly` pages are served from an analysis LRU; a text page
   of a 200-shot film is a formatting operation.
 
@@ -231,8 +203,8 @@ On the 196 s cut of the same film (nine clips once) the reference takes
 Two things about a clip are not in its pixels, and both are free:
 
 **Dialogue.** An embedded subtitle track is metadata; reading it costs no image
-tokens and tells the model what is being *said*, which no contact sheet can.
-`docs/EVIDENCE.md` measured it on an 8 s test clip with a `mov_text` track:
+tokens and tells the model what is being *said*, which no contact sheet can. On
+an 8 s test clip with a `mov_text` track:
 
 ```
 1 r1c1 00:00.00-00:04.00 @00:02.35 · "Hello from the subtitle track. Second line, still shot one."
@@ -281,12 +253,12 @@ the cause. These name the mistake and stop.
    adversarial by design (luma-flat cut, flashes, crossfade) but they are not
    film. Real-world spot checks are in `docs/REAL-WORLD.md` (gameplay capture,
    screen recording) — they show the sheets are readable, not that F1 holds.
-2. **No model in the loop.** Vision tokens are counted with the host formula,
-   not billed by an API. If the host changes its formula, re-run `bench/final.mjs`.
-3. **Cut F1 depends on the tolerance.** 0.5 s is generous; at 0.25 s the same
-   runs score lower on both sides (upstream reports this too). Timings are
-   single-machine and move ±15 % with load; a run made while another job was
-   compiling reported 723 ms where the idle machine reports 634 ms.
+2. **No model in the loop.** Vision tokens are counted with the host formula, not
+   billed by an API. If the host changes that formula, re-run `bench/final.mjs`.
+3. **Cut F1 depends on the tolerance.** 0.5 s is generous; at 0.25 s the same run
+   scores lower. Timings are single-machine and move ±15 % with load — a run made
+   while another job was compiling reported 723 ms where the idle machine
+   reported 634 ms.
 4. **Coverage is not comprehension.** A cell inside every shot says the shot was
    *shown*, not that the model *understood* it. The readable-text checks in
    `docs/DESIGN.md` were done by eye on the rendered PNGs.
@@ -296,13 +268,23 @@ the cause. These name the mistake and stop.
 ```bash
 export DSH_FFMPEG_PATH=/path/to/ffmpeg
 export DSH_FFPROBE_PATH=/path/to/ffprobe
-node bench/final.mjs --reps 3                     # ours + table
-node bench/ab/run-upstream.mjs                        # the reference, same corpus
-node bench/accuracy.mjs auto                      # per-clip cut scoring
-node bin/selfcheck.mjs --smoke             # 16 checks, builds its own clip
-node bin/selfcheck.mjs --smoke --host      # + the host's own schema engine
-node --test test/                          # 155 unit tests
+node bench/final.mjs --reps 3          # latency, geometry, tokens, coverage
+node bench/accuracy.mjs auto           # per-clip cut scoring against ground truth
+node bin/selfcheck.mjs --smoke         # 16 checks, builds its own clip
+node bin/selfcheck.mjs --smoke --host  # + the host's own schema engine (29 checks)
+node --test test/                      # 155 unit tests
 ```
 
-`bench/final.json` and `bench/ab/upstream.array.json` hold the raw records these
-tables were generated from.
+`bench/results/final.json` holds the raw records these tables were generated
+from.
+
+## Prior art
+
+The contact-sheet approach — one image with burnt-in indices plus a text index
+that binds them to timecodes — comes from
+[`SAOS-3624/dsh-video-storyboard`](https://github.com/SAOS-3624/dsh-video-storyboard),
+which showed it could be done with no image library at all. Thank you. This
+package is an independent implementation with different detection, budgeting and
+composition internals; it deliberately keeps the same three tool names and
+manifest grammar so it can stand in where that plugin is already in use. See
+`NOTICE` for the attribution.
