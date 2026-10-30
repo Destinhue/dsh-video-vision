@@ -147,6 +147,39 @@ with `perCell ≈ 92 000` at `auto` and a ceiling at the 1024-token cap (≈1.76
 Six cells get 552 kpx (≈350 tokens); twenty cells get 1.76 Mpx (≈1000 tokens).
 A cheap clip stays cheap; a dense clip spends more because it has more to show.
 
+### 3.2 A cutless stretch is not one moment
+
+Every rule above assumes a cut tells you where the picture changed. A lecture
+breaks that assumption: eleven minutes of video, one shot, and the thing the
+agent came for is what appeared minute by minute.
+
+The distance used elsewhere — mean movement over the whole frame — cannot answer
+this. Two frames of the same slide differ by a few grey levels on average even
+though a whole formula was added, so the planner correctly concluded "same
+picture" and spent one cell on the window.
+
+So for a unit longer than `boardMinSeconds` (90 s) the planner switches question,
+from *how far apart are these pictures* to *is there anything new to read*:
+
+```js
+pictureChangeFraction(scan, i, j)   // share of the 12x7 block grid whose luma
+                                    // moved >14, skipping blocks dark in both
+findBoardMoments(unit, scan)        // local peaks of the frame score, above
+                                    // max(1.6, threshold/2), 30 s apart
+boardCandidate(unit, scan, chosen)  // strongest unused peak, sampled 0.2 s after
+                                    // it so the new line is complete, kept when
+                                    // >= 2% of the picture is new
+```
+
+Cap: `min(24, 1 + floor(dur/30))` cells. Spans are then rebuilt from the
+midpoints between chosen frames, so the timeline stays gapless and a cell's
+`[t0, t1)` still means "this picture was on screen then".
+
+Measured on the 19-minute window of a lecture: **four cells became twenty-two**,
+at the same 1 024-token sheet budget. The corpus is untouched (no clip has a
+cutless stretch that long), so a talking head, a still, a slideshow and a music
+video plan exactly as before.
+
 ### 3.1 Which moments (`planCells`)
 
 1. **Floor**: one cell per shot. A shot is the unit of "the picture changed",

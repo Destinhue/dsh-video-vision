@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.2.1
+
+Board work — a lecture, a screen share, a whiteboard being written on — is one
+shot from beginning to end. The planner took that literally and asked for one
+cell, so eleven minutes of a lecture became one picture.
+
+### Fixed
+
+- **A cutless stretch is planned by what changed inside it.** Stretches longer
+  than 90 s are now planned on a 12×7 block grid instead of on the whole-frame
+  distance: a cell is added for each local peak of frame-to-frame change, at
+  least 30 s apart, capped at 24 cells, and only when at least 2 % of the
+  picture is new compared with every cell already chosen. Cell spans are rebuilt
+  from the midpoints between those frames, so the timeline stays gapless.
+- The global distance stays in charge everywhere else: a talking head, a still
+  shot, a music video and a slideshow plan exactly as before (67 cells, 3 648
+  vision tokens, cut F1 0.872, coverage 0.963 — unchanged).
+
+### Measured
+
+| | 1.2.0 | 1.2.1 |
+|---|---|---|
+| 19-minute lecture window | 4 cells (2×2) | **22 cells (4×6)** |
+| its vision tokens | 1 024 | 1 024 (same sheet budget) |
+| corpus battery | — | unchanged |
+
 ## 1.2.0
 
 A video is raw material for the work that comes after it, not something to be
@@ -47,7 +73,8 @@ nothing to say, and the plugin accepts a B站 link wherever it accepted a file.
 | outline of the 2-hour lecture | examples 1-11 | examples 1-11, unchanged |
 
 The character count went down while the screens stayed the same: what left was
-the recorder, not the lecture. 185 tests, `--smoke` 17/17, `--smoke --host` 32/32.
+the recorder, not the lecture. 188 tests, `--smoke` 17/17 (18 with ffprobe),
+`--smoke --host` 32/32 (33 with ffprobe).
 
 ## 1.1.1
 

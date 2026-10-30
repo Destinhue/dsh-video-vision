@@ -202,6 +202,22 @@ returns in 226 ms; every line the parser wants is already on stderr by then.
 The full two-hour storyboard is still a 38-second call, so the useful move for
 lecture-length material remains `start`/`end` windows.
 
+### Lectures, where nothing ever cuts
+
+A lecture is one shot. Planned one cell per shot, an 11-minute stretch of video
+became one picture. Past 90 s the planner now counts blocks that changed inside
+the stretch instead of the average distance between frames:
+
+| window | 1.2.0 | 1.2.1 |
+|---|---|---|
+| 19 min of a lecture (2 560x1 440, no cuts) | 4 cells, 2x2, 914x517 | **22 cells, 4x6, 1 457x1 263** |
+| its vision tokens | 1 024 | 1 024 |
+| corpus battery (9 clips) | 67 cells / 3 648 tokens / F1 0.872 / coverage 0.963 | unchanged |
+
+The corpus is unchanged because no clip in it has a cutless stretch longer than
+90 s, which is the point: the rule only fires on the videos that were being
+under-served.
+
 ### Reading text
 
 `video_read` on the same files, measured on the machine described above

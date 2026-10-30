@@ -16,6 +16,7 @@ import {
   maxCellsByPixels,
   cellReadability,
   planGrid,
+  pictureChangeFraction,
 } from '../src/layout.js';
 
 const BW = 12;
@@ -360,4 +361,42 @@ test('a portrait clip merges sooner than a wide one', () => {
   const wide = planCells({ scan, aspect: 16 / 9 });
   const tall = planCells({ scan, aspect: 9 / 16 });
   assert.ok(wide.cells.length >= tall.cells.length, wide.cells.length + ' vs ' + tall.cells.length);
+});
+
+test('a frame of board work counts blocks, not the average', () => {
+  // One block lit, the rest untouched: the mean moves by 255/84 ≈ 3, which no
+  // global threshold notices, while the block test sees exactly what happened.
+  const scan = makeScan({ duration: 2, effFps: 1, blockAt: () => 0 });
+  scan.blocks.fill(100, 0, STRIDE);
+  scan.blocks.fill(100, STRIDE, STRIDE * 2);
+  scan.blocks[STRIDE + 5] = 200;
+  assert.equal(pictureChangeFraction(scan, 0, 1), 1 / STRIDE);
+  scan.blocks.fill(0, 0, STRIDE);
+  scan.blocks.fill(0, STRIDE, STRIDE * 2);
+  assert.equal(pictureChangeFraction(scan, 0, 1), 0, 'letterbox black is not a change');
+});
+
+test('a long stretch with no cut still gets a cell per change, not one cell', () => {
+  // Five minutes of writing on a board: nothing is ever a "different picture",
+  // but a line appears every half minute.
+  const scan = makeScan({ duration: 300, effFps: 2, blockAt: () => 120 });
+  for (const t of [30, 60, 90, 120, 150, 180, 210, 240, 270]) {
+    scan.blocks.fill(180, Math.round(t * 2) * STRIDE, (Math.round(t * 2) + 1) * STRIDE);
+    scan.scores[Math.round(t * 2)] = 20;
+  }
+  const plan = planCells({ scan });
+  assert.ok(plan.cells.length >= 4, `expected several cells, got ${plan.cells.length}`);
+  assert.equal(plan.cells[0].t0, 0);
+  assert.equal(plan.cells[plan.cells.length - 1].t1, 300);
+  for (let k = 1; k < plan.cells.length; k++) {
+    assert.equal(plan.cells[k].t0, plan.cells[k - 1].t1, 'board cells meet');
+    assert.ok(plan.cells[k].t1 > plan.cells[k].t0);
+  }
+  assert.equal(new Set(plan.cells.map((c) => c.frameIndex)).size, plan.cells.length);
+});
+
+test('a long stretch that never changes is still one cell', () => {
+  const scan = makeScan({ duration: 300, effFps: 2, blockAt: () => 120 });
+  const plan = planCells({ scan });
+  assert.equal(plan.cells.length, 1);
 });

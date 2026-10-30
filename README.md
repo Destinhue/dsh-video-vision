@@ -66,6 +66,14 @@ cells go only to shots that are long enough *and* have a frame 2.5x further from
 every chosen frame than the "same picture" threshold. A static talking head
 never earns a second cell; a 30 s pan spreads over four.
 
+**A cutless stretch is planned by what changed inside it.** A lecture, a screen
+share, a board being written on: one shot for eleven minutes, and the whole point
+is what appeared minute by minute. Past 90 s the planner switches question — from
+"how far apart are these pictures" to "did any part of the frame gain something
+new" — measured on the same 12×7 block grid, one cell per change, 30 s apart at
+most, capped at 24. A 19-minute window goes from four cells to twenty-two at the
+same 1 024-token budget.
+
 **Decoding is batched.** Six cell extractions share one ffmpeg process (several
 inputs, one output each), three processes in flight — a 20-cell sheet costs 2-4
 process launches instead of 60.

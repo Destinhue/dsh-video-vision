@@ -18,6 +18,7 @@
  *    middle of the span and toward frames that are sharp and detailed. The
  *    scan already scored every frame, so this costs nothing.
  */
+import { SCAN_DEFAULTS } from './scan.js';
 
 export const LAYOUT_DEFAULTS = {
   minCells: 3,
@@ -31,6 +32,17 @@ export const LAYOUT_DEFAULTS = {
   // is the ceiling before the sheet turns into frame soup.
   longShotSpan: 10,
   maxCellsPerUnit: 6,
+  // Except when there is only one shot to spend the budget on. Minutes of
+  // board work, slides or a screen share belong in a storyboard even though no
+  // cut ever separates them: one cell per half minute, up to this many.
+  boardSpan: 30,
+  maxCellsSingleShot: 24,
+  // A stretch this long with no cut is a different kind of video: a lecture, a
+  // screen share, a board being written on. There the picture changes a little
+  // at a time — a line appears, a slide advances — so "is this a different
+  // picture?" has to be asked per block, not over the whole frame.
+  boardMinSeconds: 90,
+  boardMinChange: 0.02,
   spillNoveltyK: 2.5,
 };
 
@@ -282,6 +294,87 @@ function splitShot(shot, count, effFps) {
  * eating the pixel budget and pushes the freed cells toward shots that do have
  * new content.
  */
+/**
+ * Share of the frame that changed between two frames, measured on the 12x7
+ * block grid.
+ *
+ * The global distance used everywhere else answers "how far apart are these two
+ * pictures", which is the wrong question for board work: two frames of the same
+ * slide differ by a few grey levels on average even though a whole formula was
+ * added. Counting blocks that actually moved answers "is there anything new to
+ * read here", and black bars are excluded so letterboxing cannot fake a change.
+ */
+export function pictureChangeFraction(scan, i, j) {
+  const { blockCols: bw, blockRows: bh } = SCAN_DEFAULTS;
+  const blocks = scan.blocks;
+  if (!blocks) return 1;
+  const a = i * bw * bh;
+  const b = j * bw * bh;
+  let active = 0;
+  let moved = 0;
+  for (let k = 0; k < bw * bh; k++) {
+    const ya = blocks[a + k];
+    const yb = blocks[b + k];
+    if (ya < 12 && yb < 12) continue;
+    active += 1;
+    if (Math.abs(ya - yb) > 14) moved += 1;
+  }
+  return active ? moved / active : 0;
+}
+
+/**
+ * Where a long cutless stretch actually changed, strongest first.
+ *
+ * Board work changes in one place at a time (a line written, a slide advanced),
+ * so the useful moments are local peaks of the frame-to-frame score, not an
+ * even split of the clock. Peaks closer together than `boardSpan` are dropped so
+ * a burst of strokes does not eat the budget.
+ */
+function findBoardMoments(unit, scan) {
+  const minGap = Math.round(LAYOUT_DEFAULTS.boardSpan * scan.effFps);
+  const peaks = [];
+  const floor = Math.max(1.6, (scan.stats?.threshold ?? 1.6) * 0.5);
+  for (let i = unit.i0 + 1; i <= unit.i1; i++) {
+    const s = scan.scores[i] ?? 0;
+    if (s < floor) continue;
+    if (s < (scan.scores[i - 1] ?? 0) || s < (scan.scores[i + 1] ?? 0)) continue;
+    peaks.push({ i, score: s });
+  }
+  peaks.sort((a, b) => b.score - a.score);
+  const kept = [];
+  for (const p of peaks) {
+    if (kept.some((q) => Math.abs(q.i - p.i) < minGap)) continue;
+    kept.push(p);
+  }
+  return kept.sort((a, b) => a.i - b.i);
+}
+
+/**
+ * One more cell for a board stretch: the strongest change peak that is still
+ * unused and that actually differs from what the sheet already shows.
+ */
+function boardCandidate(unit, scan, chosenIdx, moments, used) {
+  const effFps = scan.effFps;
+  let best = null;
+  for (const m of moments) {
+    if (used.has(m.i)) continue;
+    // a fifth of a second after the peak, so the new line is complete
+    const at = Math.min(unit.i1, m.i + Math.round(effFps * 0.2));
+    let change = 1;
+    if (chosenIdx.length) {
+      change = 0;
+      for (const ci of chosenIdx) change = Math.max(change, pictureChangeFraction(scan, ci, at));
+    }
+    if (change < LAYOUT_DEFAULTS.boardMinChange) continue;
+    if (!best || m.score > best.score) {
+      best = { score: m.score, at, novelty: +(change * 100).toFixed(1), moment: m };
+    }
+  }
+  if (!best) return null;
+  used.add(best.moment.i);
+  return { pick: { i: best.at, score: best.score }, novelty: best.novelty, at: best.at };
+}
+
 function nextCandidate(shot, have, scan, chosenIdx, maxSad) {
   const parts = splitShot(shot, have + 1, scan.effFps);
   let best = null;
@@ -430,20 +523,68 @@ export function planCells(opts) {
   const spillMax = !dedupe ? -1
     : units.length === 1 ? maxSad
       : Math.max(maxSad * LAYOUT_DEFAULTS.spillNoveltyK, maxSad + 6);
-  const capForUnit = (u) => (units.length === 1
-    ? Math.max(1, Math.min(4, 1 + Math.floor(u.dur / LAYOUT_DEFAULTS.longShotSpan)))
-    : Math.min(LAYOUT_DEFAULTS.maxCellsPerUnit, 1 + Math.floor(u.dur / LAYOUT_DEFAULTS.longShotSpan)));
+  const capForUnit = (u) => {
+    const byTime = 1 + Math.floor(u.dur / LAYOUT_DEFAULTS.longShotSpan);
+    if (u.dur >= LAYOUT_DEFAULTS.boardMinSeconds) {
+      return Math.max(1, Math.min(LAYOUT_DEFAULTS.maxCellsSingleShot,
+        1 + Math.floor(u.dur / LAYOUT_DEFAULTS.boardSpan)));
+    }
+    if (units.length === 1) {
+      // One shot for the whole window is not the same thing as one picture for
+      // the whole window: a talking head earns one cell, a board keeps changing.
+      return Math.max(1, Math.min(4, byTime));
+    }
+    return Math.min(LAYOUT_DEFAULTS.maxCellsPerUnit, byTime);
+  };
+  const isBoard = (u) => u.dur >= LAYOUT_DEFAULTS.boardMinSeconds;
+  const boardMoments = new Map();
+  const boardUsed = new Map();
+  for (const k of eligible) {
+    if (!isBoard(units[k])) continue;
+    boardMoments.set(k, findBoardMoments(units[k], scan));
+    boardUsed.set(k, new Set());
+  }
   while (chosen.length < budget) {
     let best = null;
     for (const k of eligible) {
       if ((perUnit.get(k) ?? 0) >= capForUnit(units[k])) continue;
-      const cand = nextCandidate(units[k], perUnit.get(k) ?? 0, scan, chosenIdx, spillMax);
+      let cand = null;
+      if (isBoard(units[k])) {
+        cand = boardCandidate(units[k], scan, chosenIdx, boardMoments.get(k), boardUsed.get(k));
+        if (cand) cand.part = { t0: units[k].t0, t1: units[k].t1 };
+      } else {
+        cand = nextCandidate(units[k], perUnit.get(k) ?? 0, scan, chosenIdx, spillMax);
+      }
       if (!cand) continue;
       const score = units[k].weight * (0.55 + Math.min(cand.novelty, 80) / 80);
       if (!best || score > best.score) best = { score, k, cand };
     }
     if (!best) break;
     add(best.k, best.cand.part, best.cand.pick, best.cand.novelty);
+    if (isBoard(units[best.k]) && best.cand.at != null) {
+      chosen[chosen.length - 1].boardAt = best.cand.at;
+    }
+  }
+
+  // Board cells are placed at change moments, so their spans are not known when
+  // they are picked: each one represents the stretch between its neighbours.
+  // Rebuild those spans here, in time order, so the manifest keeps saying which
+  // part of the lecture each picture stands for.
+  for (const [k, used] of boardUsed) {
+    if (!used.size) continue;
+    const unit = units[k];
+    const mine = chosen
+      .map((c, idx) => ({ c, idx }))
+      .filter(({ c }) => c.unitIndex === k)
+      .sort((a, b) => a.c.frameIndex - b.c.frameIndex);
+    if (!mine.length) continue;
+    const cuts = mine.map(({ c }) => c.frameIndex / scan.effFps);
+    mine.forEach(({ c }, n) => {
+      const left = n === 0 ? unit.t0 : (cuts[n - 1] + cuts[n]) / 2;
+      const right = n === mine.length - 1 ? unit.t1 : (cuts[n] + cuts[n + 1]) / 2;
+      c.t0 = +left.toFixed(3);
+      c.t1 = +right.toFixed(3);
+    });
   }
 
   chosen.sort((a, b) => a.t0 - b.t0);
