@@ -284,36 +284,52 @@ So the split is: slides and screen recordings go through `video_read` (87–112 
 for two hours), speech-only material through ASR, and when you need both, read
 first and run ASR on the window you care about by passing `start`/`end`.
 
-### Speech, when you have an engine
+**The client owns two of the recogniser's failure modes**, because every engine has
+them and every caller would otherwise reinvent them badly:
 
-`video_storyboard` and `video_read` can quote what is being **said** as well as
-what is written, if you point `DSH_ASR_CMD` at an engine you already trust:
+- *Music is not speech.* Asked to transcribe an instrumental, a recogniser does
+  not return nothing — it invents a sentence and gives it a long timestamp. On a
+  90-second PV that produced a fake 29-second line, and since cells are quoted by
+  time overlap the same garbage landed in five cards. Lines that are
+  punctuation-only, or longer than 8 s at under 0.8 characters per second (real
+  speech runs 2–6), are dropped; **the count is reported** in the manifest line as
+  `2 suspect line(s) dropped`, because a filter nobody can audit is
+  indistinguishable from a recogniser that stopped working.
+- *The vocabulary is yours, not the internet's.* `递推` comes back `地规`, `阶乘`
+  comes back `階層`. Put the corrections in `~/.dsh/asr.json` beside the command:
+
+  ```json
+  {
+    "cmd": "C:\\python\\python.exe F:\\asr\\engine.py --model small {wav} {out}",
+    "terms": { "地规": "递推", "階層": "阶乘" }
+  }
+  ```
+
+  The environment still wins over the file (`DSH_ASR_CMD`); the file exists because
+  a desktop host does not inherit `setx` variables. Longest key first, single pass,
+  and the manifest reports `1 term(s) fixed`.
+
+  Each key is tried in **both scripts** (≈50 Simplified/Traditional pairs a
+  lecture actually contains), because whisper transcribes Mandarin into
+  Traditional: a key written `地规` has to match the `地規` that comes back, and
+  before this it silently did nothing. Write the dictionary in the characters you
+  think in; the other spelling works too.
+
+**Cell boundaries move onto silence.** Dialogue already knows where its sentences
+end, so a boundary within 1.5 s of a silence midpoint is moved there instead of
+splitting a card an arbitrary tenth of a second into the next word. No card gets
+shorter than 0.3 s in the process.
+
+**If you already have a transcript, pass it.** `transcriptFile` takes SRT, WebVTT,
+or JSON (`[{start,end,text}]`, or `{"segments":[…]}` as whisper-family tools emit)
+and is tried **before** the subtitle track and before ASR:
 
 ```
-set DSH_ASR_CMD=C:\python\python.exe F:\asr\engine.py --model small {wav} {out}
+video_storyboard({"input": "lecture.mp4", "transcriptFile": "lecture.srt"})
 ```
 
-The window's audio is extracted once (16 kHz mono), your command runs, and the SRT
-it writes to `{out}` — or prints on stdout — is parsed. Each line is quoted on the
-cell that contains its midpoint, so nothing is repeated. A subtitle track, when
-present, always wins: it was captioned by a human and costs no decode.
-
-No engine is bundled, deliberately. This package is 600 KB of code with zero
-dependencies, and the accuracy lives in the model (tiny 75 MB, small 484 MB,
-medium 1.5 GB). Measured on two minutes of a real lecture on 16 threads:
-
-| engine | transcript time | two hours, extrapolated | what comes out |
-|---|---|---|---|
-| `tiny` | 2.5 s | ~2.5 min | garbled: `選抜` for 选法, `按摩機束` for 枚举 |
-| `small` | 15.5 s | ~15 min | readable, Traditional output, `地规` for 递推 |
-
-The host's own offline recogniser was tried and rejected: `System.Speech` zh-CN
-turned the same minute into one 60-character line at **1.7 % confidence**. That is
-worse than returning nothing, which is why this is a hook and not a feature.
-
-So the split is: slides and screen recordings go through `video_read` (87–112 s
-for two hours), speech-only material through ASR, and when you need both, read
-first and run ASR on the window you care about by passing `start`/`end`.
+The B站 case is the one that pays: the captions are already there, and paying for
+a download plus a recogniser to re-derive them would be silly.
 
 ## What it cannot do
 

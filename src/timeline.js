@@ -323,6 +323,76 @@ export function groupCues(cues, { maxChars = 180, maxGap = 1.2 } = {}) {
 }
 
 /**
+ * Silence midpoints between consecutive cues.
+ *
+ * This is where a cell boundary belongs: cutting inside a sentence quotes half
+ * a sentence on both cards, and the reader has no way to tell which card the
+ * words were actually spoken over.
+ */
+export function sentenceGaps(cues, { minGap = 0.25 } = {}) {
+  const gaps = [];
+  for (let i = 1; i < (cues?.length ?? 0); i++) {
+    const gap = cues[i].t0 - cues[i - 1].t1;
+    if (gap < minGap) continue;
+    gaps.push({ t: +((cues[i - 1].t1 + cues[i].t0) / 2).toFixed(3), gap: +gap.toFixed(2) });
+  }
+  return gaps;
+}
+
+/**
+ * Move cell boundaries onto silence midpoints, in place.
+ *
+ * Only boundaries within `maxShift` of a real gap move, and a move that would
+ * leave either neighbour shorter than `minCellSeconds` is refused - a snapping
+ * pass that can create a zero-length cell is a bug generator.
+ *
+ * @returns {number} how many boundaries moved
+ */
+export function snapCellsToSpeech(cells, cues, { maxShift = 1.5, minGap = 0.25, minCellSeconds = 0.3 } = {}) {
+  const gaps = sentenceGaps(cues, { minGap });
+  if (!gaps.length || !cells || cells.length < 2) return 0;
+  let moved = 0;
+  for (let i = 0; i < cells.length - 1; i++) {
+    const here = cells[i].t1;
+    let best = null;
+    for (const g of gaps) {
+      const d = Math.abs(g.t - here);
+      if (d <= maxShift && d > 0.001 && (!best || d < best.d)) best = { d, t: g.t };
+    }
+    if (!best) continue;
+    if (best.t - cells[i].t0 < minCellSeconds) continue;
+    if (cells[i + 1].t1 - best.t < minCellSeconds) continue;
+    cells[i].t1 = +best.t.toFixed(3);
+    cells[i + 1].t0 = +best.t.toFixed(3);
+    moved++;
+  }
+  return moved;
+}
+
+/**
+ * Characters per second of speech.
+ *
+ * A planning signal, not a statistic: a stretch where somebody talks steadily
+ * is a stretch where each sentence deserves its own cell, and forty seconds of
+ * silence does not.
+ */
+export function speechRate(cues) {
+  const list = Array.isArray(cues) ? cues : [];
+  if (!list.length) return 0;
+  let chars = 0;
+  let t0 = Infinity;
+  let t1 = -Infinity;
+  for (const c of list) {
+    chars += String(c.text ?? '').replace(/\s+/g, '').length;
+    if (c.t0 < t0) t0 = c.t0;
+    if (c.t1 > t1) t1 = c.t1;
+  }
+  const span = t1 - t0;
+  if (!(span > 0) || !chars) return 0;
+  return +(chars / span).toFixed(2);
+}
+
+/**
  * Which transcript segment covers `t`. Used by the manifest so each cell line
  * can quote the dialogue that belongs to it.
  */

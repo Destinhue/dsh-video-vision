@@ -107,7 +107,17 @@ export function formatManifest(p) {
     extra.push('audio: none');
   }
   if (transcript && transcript.source) {
-    extra.push(`transcript: ${transcript.source}${transcript.segments ? ` · ${transcript.segments.length} segments` : ''}`);
+    const bits = [`transcript: ${transcript.source}`];
+    // Cues are what gets quoted, so count those; `segments` is the merged view
+    // and reporting it here read as "one line" for a six-card slideshow.
+    if (Array.isArray(transcript.cues) && transcript.cues.length) bits.push(`${transcript.cues.length} lines`);
+    else if (transcript.segments) bits.push(`${transcript.segments.length} segments`);
+    // What the client-side filters did, in the same breath as the transcript:
+    // "3 lines dropped" is information, and hiding it would make a hallucination
+    // filter look like a silent recogniser.
+    if (transcript.dropped) bits.push(`${transcript.dropped} suspect line(s) dropped`);
+    if (transcript.terms) bits.push(`${transcript.terms} term(s) fixed`);
+    extra.push(bits.join(' · '));
   } else if (p.asrNote) {
     // A configured engine that failed must say so; silence reads as "no speech".
     extra.push(`asr: unavailable · ${String(p.asrNote).slice(0, 120)}`);

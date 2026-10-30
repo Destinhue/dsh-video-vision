@@ -98,6 +98,7 @@ export async function apply(ctx) {
           detail: args.detail ?? 'auto',
           maxCells: args.cells,
           textOnly: args.textOnly === true,
+          transcriptFile: typeof args.transcriptFile === 'string' ? args.transcriptFile : undefined,
           cellRange: Array.isArray(args.cellRange) ? args.cellRange : null,
           pick: args.pick === 'middle' ? 'middle' : 'sharp',
           signal: exec?.signal,

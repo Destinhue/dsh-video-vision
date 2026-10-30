@@ -22,9 +22,10 @@ import { planCells, planGrid, cellReadability, sheetPixelsFor, DETAIL_PRESETS, s
 import { extractCells, extractFrame } from './frames.js';
 import { composeSheet } from './sheet.js';
 import { encodePng } from './png.js';
-import { analyzeAudio, extractSubtitles, groupCues, timecode } from './timeline.js';
+import { analyzeAudio, extractSubtitles, groupCues, snapCellsToSpeech, timecode } from './timeline.js';
 import { formatManifest } from './manifest.js';
-import { asrAvailable, asrCues } from './asr.js';
+import { loadTranscriptFile } from './transcript.js';
+import { asrAvailable, asrCues, loadAsrSettings } from './asr.js';
 import { isBilibili, bilibiliFile, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
 
 export { DETAIL_PRESETS };
@@ -158,9 +159,18 @@ export async function runStoryboard(opts) {
   const { scan, audio } = analysis;
   mark('analyse');
 
-  // ---- 3. subtitles (container metadata, no decode)
+  // ---- 3. transcript, in the order of who pays for it
+  //
+  //   1. `transcriptFile` - the caller already has it. Free and exact.
+  //   2. the container's subtitle track - free, exact, and often already there.
+  //   3. ASR - costs a decode, a model run, and somebody's accuracy.
   let transcript = analysis.transcript ?? { cues: [], segments: [], source: null };
   let asrNote = null;
+  if (opts.transcript !== false && opts.transcriptFile && !(transcript.cues && transcript.cues.length)) {
+    const fromFile = loadTranscriptFile(opts.transcriptFile);
+    transcript = { cues: fromFile.cues, segments: groupCues(fromFile.cues), source: `file:${fromFile.source}` };
+    analysis.transcript = transcript;
+  }
   if (opts.transcript !== false && probe.hasSubtitle && !analysis.transcript) {
     try {
       const subs = await extractSubtitles({ input, ffmpegPath, signal: opts.signal, run, probe });
@@ -183,12 +193,26 @@ export async function runStoryboard(opts) {
     && !(transcript.cues && transcript.cues.length)
     && probe.hasAudio && asrAvailable()) {
     try {
-      const heard = await asrCues({ ffmpegPath, input, start, end: start + window, signal: opts.signal });
+      const settings = loadAsrSettings();
+      const heard = await asrCues({
+        ffmpegPath, input, start, end: start + window, signal: opts.signal, settings,
+      });
       if (heard.cues.length) {
-        transcript = { cues: heard.cues, segments: groupCues(heard.cues), source: 'asr' };
+        transcript = {
+          cues: heard.cues,
+          segments: groupCues(heard.cues),
+          source: 'asr',
+          dropped: heard.dropped?.length ?? 0,
+          terms: heard.terms ?? 0,
+        };
         analysis.transcript = transcript;
       }
       if (heard.reason) asrNote = heard.reason;
+      if (heard.dropped?.length) {
+        // Reported, not hidden: a filter nobody can audit is indistinguishable
+        // from a recogniser that stopped working.
+        asrNote = `${heard.dropped.length} suspect segment(s) dropped`;
+      }
     } catch (error) {
       asrNote = String(error?.message ?? error);
     }
@@ -222,6 +246,14 @@ export async function runStoryboard(opts) {
       c.t1 = +(c.t1 + shift).toFixed(3);
     }
   }
+  // Dialogue already knows where the sentences end. Move the boundaries there
+  // rather than a tenth of a second into the next word: a card whose span cuts a
+  // sentence in half quotes half a sentence on both cards.
+  const snapped = transcript?.cues?.length
+    ? snapCellsToSpeech(plan.cells, transcript.cues)
+    : 0;
+  if (snapped) plan.speechSnapped = snapped;
+
   if (plan.cells.length === 0) {
     return { empty: true, probe, scan, reason: scan.degraded ?? 'no cells' };
   }

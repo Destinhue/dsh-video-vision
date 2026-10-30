@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.3.1
+
+### Added — the transcript, and what is owed to it
+
+- `transcriptFile` accepts SRT, WebVTT, or JSON (`[{start,end,text}]` /
+  `{"segments":[…]}`) and is consulted **before** the embedded subtitle track and
+  before `DSH_ASR_CMD`. Re-deriving captions you already have is the most
+  expensive way to get them wrong.
+- `~/.dsh/asr.json` can hold the command as well as a `terms` dictionary
+  (`{"cmd": "…", "terms": {"地规": "递推"}}`). The environment still wins; the file
+  exists because a desktop host does not inherit `setx` variables.
+- Hallucinations are filtered client-side, because every engine invents speech
+  over music: punctuation-only lines are dropped, and so are lines longer than 8 s
+  at under 0.8 characters per second (real speech runs 2–6).
+- The term dictionary is tried in both scripts. Measured: whisper `small`
+  returns **Traditional** characters for Mandarin, so a key typed `地规` missed the
+  `地規` it was written for — every key now also tries its Simplified/Traditional
+  twins (≈50 pairs of characters a lecture actually contains).
+- The term dictionary is tried in both scripts. Measured: whisper `small`
+  returns **Traditional** characters for Mandarin, so a key typed `地规` missed the
+  `地規` it was written for — every key now also tries its Simplified/Traditional
+  twins (≈50 pairs of characters a lecture actually contains).
+- The manifest reports what the filters did — `transcript: asr · 40 lines · 2
+  suspect line(s) dropped · 3 term(s) fixed` — and now counts **cues**, not merged
+  segments (a six-card slideshow used to say "1 segments").
+
+### Changed
+
+- Cell boundaries snap to silence midpoints (±1.5 s) once a transcript exists, so
+  a card no longer ends in the middle of a sentence; a move that would leave a
+  cell under 0.3 s is refused.
+- `transcript: <source>` is printed with `file:srt` / `file:vtt` / `file:json`
+  when a supplied file was used.
+
+### Rejected after measuring
+
+- Feeding speech density back into the cell count. A talking head is the same
+  picture whether or not somebody is talking, so extra cells there buy nothing
+  visible — `video_read` is the answer for a face and a voice, and `docs/DESIGN.md`
+  §11 records the attempt and why it was dropped.
+
+### Tests
+
+- `219` tests (`node --test test/`), `--smoke` 17/17, `--smoke --host` 32/32, and
+  the corpus battery unchanged at 67 cells / 3 648 tokens / F1 0.872 / coverage
+  0.963.
 ## 1.3.0
 
 ### Added — speech, by proxy

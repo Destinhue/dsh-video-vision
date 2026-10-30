@@ -127,6 +127,12 @@ export function storyboardSpec(ctx) {
           description: 'Which frame inside a shot becomes its cell. `sharp` (default) takes the crispest moment, '
             + 'which avoids motion-blurred and mid-transition frames.',
         },
+        transcriptFile: {
+          type: 'string',
+          description: 'Path to a transcript you already have (SRT, VTT, or JSON [{start,end,text}]). '
+            + 'Tried before the embedded subtitle track and before speech recognition: there is no reason '
+            + 'to re-derive what you can paste.',
+        },
         textOnly: { type: 'boolean', description: 'Return only the text index; no image, no frame decode. Cheap paging for long films.' },
         cellRange: {
           type: 'array',

@@ -1,7 +1,7 @@
 {
   "name": "dsh-video-vision",
   "description": "Video understanding for DeepSeek Harness: adaptive storyboard grids (content-aware resolution, scene-accurate cells), a token-tight text index, and on-demand zoom.",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "entry": {
     "name": "dsh-video-vision",
     "inject": [

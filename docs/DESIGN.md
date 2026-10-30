@@ -428,3 +428,40 @@ extracting the audio once, keeping timestamps on the file's clock instead of the
 window's, and attributing each line to the cell whose span contains its midpoint —
 the same rule the subtitle track uses, which already had a test for the sentence
 that straddles a cut.
+
+## 11. What the client owes the recogniser
+
+A recogniser is asked one question — "what was said" — and it answers with three
+things you did not ask for: invented speech over music, a vocabulary of its own,
+and segment boundaries that land wherever the model felt like stopping. The first
+two are fixed here because they are cheaper to fix once than to notice later; the
+third is fixed by the part of the pipeline that already knows where sentences end.
+
+**Invented speech is the dangerous one**, because it is plausible. A 90-second PV
+with one spoken line came back with a fake 29-second segment over the
+instrumental; cells quote dialogue by time overlap, so that single fake line was
+printed on five cards — the same garbage five times, which reads as confidence.
+Two measurements separate the cases: real speech runs 2–6 characters per second,
+and a hallucinated line runs under 0.8 over eight seconds or more. Both shapes are
+dropped, and the count is printed, because a silent filter is indistinguishable
+from a broken recogniser.
+
+**The vocabulary belongs to the user.** `递推 → 地规` and `阶乘 → 階層` are not
+model errors you can prompt away; they are the training distribution showing
+through. A dictionary in `~/.dsh/asr.json`, applied longest-key-first in one pass,
+fixes the words that matter for the cost of one JSON file. `String.replaceAll`
+would expand `$&` in the replacement, so the replacement is literal by
+construction.
+
+**Boundaries belong to silence.** A cell that ends inside a sentence quotes half a
+sentence on both of its neighbours, and the model reading the manifest has no way
+to tell which card the words were spoken over. Silence midpoints are exactly the
+right place to cut, so boundaries within 1.5 s of one move there — with a floor of
+0.3 s per cell, so the snapping can never manufacture a zero-length tile.
+
+**What was tried and dropped:** feeding speech density back into the cell count.
+It sounds right — talk-heavy stretches deserve more pictures — and it is wrong for
+the material at hand: a talking head is the same picture whether or not somebody is
+speaking, so the extra cells are near-duplicates. Slides earn cells from *picture*
+change (board mode, §9), narration earns its own tool (`video_read`), and the two
+meet in the manifest, where each cell quotes the lines that were spoken over it.
