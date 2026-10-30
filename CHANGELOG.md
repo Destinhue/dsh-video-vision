@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.2.0
+
+A video is raw material for the work that comes after it, not something to be
+watched by proxy. This release follows that: `video_read` stops being a
+deduplicator of frames and becomes a text extractor that knows when a screen has
+nothing to say, and the plugin accepts a B站 link wherever it accepted a file.
+
+### Added
+
+- **B站 links as a source.** `video_probe`, `video_storyboard`, `video_zoom` and
+  `video_read` all accept `bilibili.com/video/BV…`, a bare `BV…` id, an `av` id, or a
+  `b23.tv` short link. The video is fetched from the public endpoints (one `durl`
+  mp4 that already carries its audio), written to `$DSH_HOME/cache/video-vision/
+  bilibili/` with a sidecar, and reused on the next call. `video_probe` on a link
+  costs one HTTP call and **no download**.
+- `DSH_BILIBILI_COOKIE` / `$DSH_HOME/bilibili-cookies.txt` raises the quality
+  (720P anonymously, 1080P with a login cookie), `DSH_BILIBILI_MAX_HEIGHT` caps
+  what gets downloaded, and a subtitle track published by B站 is muxed in and
+  quoted per cell like any embedded subtitle.
+- `video_read` says what it found instead of guessing: under three readable
+  screens the result is a header, a note naming the likely reason (hand-writing,
+  camera recording, no slides) and a pointer to `video_storyboard`.
+
+### Fixed
+
+- **Screen text is judged by shape, not by length.** A frame of hand-writing
+  reaches OCR as eight to ten invented characters in a row, which passed every
+  length test. Text that was actually read arrives with punctuation, a decimal
+  point, a bracket or an `=`; that is the test now, so `亿天小釒一 0 立去千凸到` is
+  dropped while `例题 3 … M(P)=44·m(P)` is kept.
+- **Furniture is found by frequency.** The recorder's clock reads a different
+  time on every frame, so an exact-line test never fired. Lines that occupy most
+  screens are dropped on a digits-stripped key, but only when they are short and
+  on nearly every screen, so `例题 1` and `例题 2` stay distinct.
+- The header's screen count and the reported statistics now describe the same
+  list (the post-dedupe one).
+
+### Measured
+
+| | 1.1.1 | 1.2.0 |
+| --- | --- | --- |
+| 2-hour lecture (`第二次课`) | 112 s · 56 screens · 10 134 chars | **91 s** · 56 screens · **7 588 chars** |
+| 36-second text-card clip | 1.4 s · 6 screens | 1.1 s · 6 screens |
+| hand-written summary video (B站, 34 min) | 4 screens of strokes | **0 screens**, one honest note |
+| outline of the 2-hour lecture | examples 1-11 | examples 1-11, unchanged |
+
+The character count went down while the screens stayed the same: what left was
+the recorder, not the lecture. 185 tests, `--smoke` 17/17, `--smoke --host` 32/32.
+
 ## 1.1.1
 
 The first cut of `video_read` was tuned on one lecture, and the tuning was the

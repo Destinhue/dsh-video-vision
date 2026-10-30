@@ -64,6 +64,10 @@ export async function apply(ctx) {
     return { ffmpegPath: state.ffmpeg, ffprobePath: state.ffprobe };
   };
 
+  const debugLog = process.env.DSH_VIDEO_VISION_DEBUG
+    ? (message) => { try { console.error('[video-vision]', message); } catch { /* stderr gone */ } }
+    : undefined;
+
   const handlers = {
     async read(args, exec) {
       try {
@@ -97,6 +101,7 @@ export async function apply(ctx) {
           cellRange: Array.isArray(args.cellRange) ? args.cellRange : null,
           pick: args.pick === 'middle' ? 'middle' : 'sharp',
           signal: exec?.signal,
+          log: debugLog,
         });
         if (result.empty) {
           return { text: `no frames could be read from ${args.input}: ${result.reason}`, images: [] };

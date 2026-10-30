@@ -24,10 +24,34 @@ import { composeSheet } from './sheet.js';
 import { encodePng } from './png.js';
 import { analyzeAudio, extractSubtitles, groupCues, timecode } from './timeline.js';
 import { formatManifest } from './manifest.js';
+import { isBilibili, bilibiliFile, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
 
 export { DETAIL_PRESETS };
 
 const MAX_CELLS_HARD = 24;
+
+/**
+ * A B站 link is not a path, so anything that decodes has to wait for the
+ * download. `video_probe` deliberately does not call this: asking what a video
+ * is should cost one HTTP request, not a hundred megabytes.
+ */
+async function resolveSource(rawInput, { ffmpegPath, signal, log } = {}) {
+  if (!isBilibili(rawInput)) return { path: rawInput, meta: null, download: null };
+  const file = await bilibiliFile(rawInput, { ffmpegPath, signal, log, maxHeight: biliMaxHeight() });
+  return { path: file.path, meta: file.meta, download: file };
+}
+
+/** Highest quality worth downloading; 1080p by default, override with the env. */
+export function biliMaxHeight(env = process.env) {
+  const n = Number(env.DSH_BILIBILI_MAX_HEIGHT);
+  return Number.isFinite(n) && n >= 144 ? Math.floor(n) : 1080;
+}
+
+function sourceTitle(meta) {
+  if (!meta) return '';
+  const part = meta.pages > 1 && meta.partTitle ? ` · P${meta.page} ${meta.partTitle}` : '';
+  return `${meta.title || meta.bvid}${part}`;
+}
 
 /**
  * Analysis cache. A long film is scanned once and re-used by every later call
@@ -89,8 +113,13 @@ export async function runStoryboard(opts) {
   if (!ffmpegPath) throw new Error('ffmpeg not found — set DSH_FFMPEG_PATH or install ffmpeg');
   const ffprobePath = opts.ffprobePath ?? await findFfprobe();
 
+  // ---- 0. source: a B站 link becomes a local file before anything else
+  const source = await resolveSource(opts.input, { ffmpegPath, signal: opts.signal, log: opts.log });
+  const input = source.path;
+  mark('source');
+
   // ---- 1. probe
-  const probe = await probeVideo(opts.input, { ffmpegPath, ffprobePath });
+  const probe = await probeVideo(input, { ffmpegPath, ffprobePath });
   mark('probe');
   const dur = probe.duration || 0;
   const start = clamp(Number(opts.start) || 0, 0, Math.max(0, dur - 0.2));
@@ -106,7 +135,7 @@ export async function runStoryboard(opts) {
   const upright = uprightSize(probe.coded.width, probe.coded.height, probe.rotation);
 
   // ---- 2. analysis, reused across calls when the file has not changed
-  const identity = await identityOf(opts.input);
+  const identity = await identityOf(input);
   const key = `${identity}|${start.toFixed(2)}|${window.toFixed(2)}|${opts.detail ?? 'auto'}|${opts.maxCells ?? ''}|${opts.pick ?? 'sharp'}`;
   let analysis = cacheGet(key);
   const fromCache = Boolean(analysis);
@@ -114,11 +143,11 @@ export async function runStoryboard(opts) {
   if (!analysis) {
     const [scan, audio] = await Promise.all([
       scanShots({
-        input: opts.input, ffmpegPath, fps: probe.fps || 25, aspect,
+        input, ffmpegPath, fps: probe.fps || 25, aspect,
         start, duration: window, signal: opts.signal,
       }),
       probe.hasAudio
-        ? analyzeAudio({ input: opts.input, ffmpegPath, signal: opts.signal, duration: window, run })
+        ? analyzeAudio({ input, ffmpegPath, signal: opts.signal, duration: window, run })
           .catch((error) => ({ hasAudio: false, error: String(error?.message ?? error) }))
         : Promise.resolve({ hasAudio: false, skipped: true }),
     ]);
@@ -132,7 +161,7 @@ export async function runStoryboard(opts) {
   let transcript = analysis.transcript ?? { cues: [], segments: [], source: null };
   if (opts.transcript !== false && probe.hasSubtitle && !analysis.transcript) {
     try {
-      const subs = await extractSubtitles({ input: opts.input, ffmpegPath, signal: opts.signal, run, probe });
+      const subs = await extractSubtitles({ input, ffmpegPath, signal: opts.signal, run, probe });
       // Keep the RAW cues: the manifest attributes each line to the cell that
       // contains its midpoint, so one line is quoted once. `groupCues` merges
       // neighbouring lines into sentences and is only good for a summary count.
@@ -175,7 +204,7 @@ export async function runStoryboard(opts) {
   mark('plan');
 
   const base = {
-    name: basename(opts.input),
+    name: source.meta ? sourceTitle(source.meta) : basename(input),
     probe: { ...probe, width: upright.width, height: upright.height },
     scan, plan, audio, transcript,
   };
@@ -194,7 +223,7 @@ export async function runStoryboard(opts) {
 
   // ---- 6. decode the chosen frames
   const extraction = await extractCells({
-    input: opts.input, ffmpegPath, cells: plan.cells,
+    input, ffmpegPath, cells: plan.cells,
     cellW: grid.cellW, cellH: grid.cellH, signal: opts.signal,
   });
   mark('decode');
@@ -253,7 +282,9 @@ export async function runZoom(opts) {
   const ffmpegPath = opts.ffmpegPath ?? await findFfmpeg();
   if (!ffmpegPath) throw new Error('ffmpeg not found — set DSH_FFMPEG_PATH or install ffmpeg');
   const ffprobePath = opts.ffprobePath ?? await findFfprobe();
-  const probe = await probeVideo(opts.input, { ffmpegPath, ffprobePath });
+  const source = await resolveSource(opts.input, { ffmpegPath, signal: opts.signal, log: opts.log });
+  const input = source.path;
+  const probe = await probeVideo(input, { ffmpegPath, ffprobePath });
   const dur = probe.duration || 0;
   const start = clamp(Number(opts.start) || 0, 0, Math.max(0, dur - 0.1));
   const endAsked = Number(opts.end);
@@ -273,14 +304,14 @@ export async function runZoom(opts) {
     grid = planGrid(1, aspect, { pixels });
     const at = opts.at != null ? clamp(Number(opts.at), start, start + window) : start + window / 2;
     const f = await extractFrame({
-      input: opts.input, ffmpegPath, t: at, width: grid.cellW, height: grid.cellH, signal: opts.signal,
+      input, ffmpegPath, t: at, width: grid.cellW, height: grid.cellH, signal: opts.signal,
     });
     frames = [{ index: 1, at, t0: null, t1: null, data: f.data, width: grid.cellW, height: grid.cellH }];
   } else {
-    const key = `${await identityOf(opts.input)}|${start.toFixed(2)}|${window.toFixed(2)}|zoom`;
+    const key = `${await identityOf(input)}|${start.toFixed(2)}|${window.toFixed(2)}|zoom`;
     const cached = cacheGet(key);
     scan = cached?.scan ?? await scanShots({
-      input: opts.input, ffmpegPath, fps: probe.fps || 25, aspect,
+      input, ffmpegPath, fps: probe.fps || 25, aspect,
       start, duration: window, signal: opts.signal, fullRate: true,
     });
     if (!cached) cacheSet(key, { scan, audio: { hasAudio: false }, start, window, at: Date.now() });
@@ -308,7 +339,7 @@ export async function runZoom(opts) {
     }
     grid = planGrid(use.length, aspect, { pixels });
     const ex = await extractCells({
-      input: opts.input, ffmpegPath, cells: use, cellW: grid.cellW, cellH: grid.cellH, signal: opts.signal,
+      input, ffmpegPath, cells: use, cellW: grid.cellW, cellH: grid.cellH, signal: opts.signal,
     });
     frames = use.map((c) => {
       const f = ex.frames.get(c.index);
@@ -325,7 +356,7 @@ export async function runZoom(opts) {
   const png = encodePng(sheetPixels.data, sheetPixels.width, sheetPixels.height);
 
   const lines = [
-    `${basename(opts.input)} · window ${timecode(start)}-${timecode(start + window)} · ${grid.cols}x${grid.rows} ${grid.cellW}x${grid.cellH}${scan ? ` · ${scan.summary.shots} shots` : ''}`,
+    `${source.meta ? sourceTitle(source.meta) : basename(input)} · window ${timecode(start)}-${timecode(start + window)} · ${grid.cols}x${grid.rows} ${grid.cellW}x${grid.cellH}${scan ? ` · ${scan.summary.shots} shots` : ''}`,
     'cols: cell · frame@ · span',
   ];
   for (const f of frames) {
@@ -348,6 +379,7 @@ export async function runZoom(opts) {
 /** Metadata plus a reading plan. No decode, no image. */
 export async function runProbe(opts) {
   const started = Date.now();
+  if (isBilibili(opts.input)) return await probeBilibili(opts.input, started);
   const ffmpegPath = opts.ffmpegPath ?? await findFfmpeg();
   const ffprobePath = opts.ffprobePath ?? await findFfprobe();
   if (!ffmpegPath && !ffprobePath) throw new Error('no ffmpeg and no ffprobe found');
@@ -374,6 +406,56 @@ export async function runProbe(opts) {
   lines.push(`elapsed ${Date.now() - started}ms`);
 
   return { text: lines.join('\n'), probe, plan };
+}
+
+/**
+ * What a B站 link is, before any byte of video is fetched: title, part, length,
+ * the quality we are allowed to download, and whether there is a subtitle track
+ * to quote from. Costs three HTTP calls and no decode, so the model can decide
+ * what to do next with a link in under a second.
+ */
+async function probeBilibili(rawInput, started) {
+  const meta = await bilibiliView(rawInput);
+  let play = null;
+  try {
+    play = await bilibiliPlay(meta);
+  } catch (error) {
+    play = { error: String(error?.message ?? error) };
+  }
+  const subs = meta.cid ? await bilibiliSubtitles(meta) : { cues: [], available: [], language: null };
+  const subtitleLabel = subs.cues.length
+    ? `${subs.cues.length} 条${subs.language ? `（${subs.language}）` : ''}`
+    : (subs.available.length ? `未下载（可用 ${subs.available.join(' / ')}）` : '不可用');
+  const plan = suggestDetail({
+    duration: meta.duration,
+    aspect: 16 / 9,
+    hasAudio: true,
+    hasSubtitle: subs.cues.length > 0,
+  });
+  const lines = [
+    describeBilibili(meta, {
+      qualityLabel: play?.label ? `${play.label}${play.size ? ` · ${(play.size / 1048576).toFixed(1)} MB` : ''}` : null,
+      subtitles: subtitleLabel,
+    }),
+  ];
+  if (play?.error) lines.push(`playurl: ${play.error}`);
+  lines.push(`plan: ${plan.detail} detail · ${plan.cells} cells · ~${plan.tokens} vision tokens · ${plan.windows} call${plan.windows > 1 ? 's' : ''}`);
+  if (plan.note) lines.push(plan.note);
+  lines.push('next: video_storyboard (one sheet) · video_read (text of every screen) · video_zoom (one window, bigger)');
+  lines.push(`elapsed ${Date.now() - started}ms`);
+  return {
+    text: lines.join('\n'),
+    probe: {
+      path: meta.url,
+      duration: meta.duration,
+      bvid: meta.bvid,
+      page: meta.page,
+      pages: meta.pages,
+      title: meta.title,
+      quality: play?.quality ?? null,
+    },
+    plan,
+  };
 }
 
 /* ------------------------------------------------------------------ utils */

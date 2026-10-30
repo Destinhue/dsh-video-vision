@@ -9,6 +9,9 @@ video_probe       读容器元数据 + 阅读计划，不解码画面
 video_storyboard  一张分镜图 + 逐格对应的文本索引
 video_zoom        对一个短窗口放大看，1-9 格
 video_read        整条视频读成带时间戳的文本 —— 讲课、幻灯片、录屏
+
+输入可以是文件路径、直链，或 **B站 链接**（`bilibili.com/video/BV…`、裸 BV 号、`av` 号、
+`b23.tv` 短链）：第一次会下载到缓存，之后和被下载好的文件一样读。
 ```
 
 > 每一项设计决定背后的实测数据见 [docs/DESIGN.md](docs/DESIGN.md)；
@@ -76,6 +79,9 @@ video_read        整条视频读成带时间戳的文本 —— 讲课、幻灯
 | 切点召回 / 精确率 | 1.000 / 0.774 |
 | 镜头覆盖率 | **0.963** |
 | 结果里的说明文字 | 477 字符 |
+| 两小时课程读成文本 | **91 秒**，56 屏，7600 字 |
+| 36 秒文字卡片 | **1.1 秒**，6 屏 |
+| B站 链接只探测（不下载） | **226 毫秒** |
 
 对一部 **13 分钟** 的片子，一次调用给**一张**图：28 格、每格 331x186、
 1024 token、6.2 秒，连同索引共约 1353 token 的上下文。完整表格在 EVIDENCE.md。
@@ -116,8 +122,8 @@ ffprobe 同理（`$DSH_FFPROBE_PATH` / `$FFPROBE_PATH`）。
 一条命令自检（不需要现成视频，它会自己生成一个）：
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 18 项检查（装了 ffprobe 则 19 项），自己生成素材
-node bin/selfcheck.mjs --smoke --host   # 33 项：用已安装的 Harness 自己的 schema 校验四个工具
+node bin/selfcheck.mjs --smoke          # 17 项检查，自己生成素材
+node bin/selfcheck.mjs --smoke --host   # 32 项：用已安装的 Harness 自己的 schema 校验四个工具
                                         # 引擎校验三个工具（29 项）
 node --test test/                       # 161 个单元测试，不联网，临时目录隔离
 ```

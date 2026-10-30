@@ -27,6 +27,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ocrBackend, ocrDirectory } from './ocr.js';
+import { isBilibili, bilibiliFile } from './bili.js';
 
 export const READ_DEFAULTS = {
   gridWidth: 96,
@@ -87,35 +88,19 @@ function stripLeadingJunk(text) {
  * @param {string} text cleaned text
  */
 export function isChrome(text) {
-  if (!text) return true;
-  const bare = text.replace(/\s+/g, '');
-  // a screen with a handful of characters tells the model nothing
-  if (bare.length < 8) return true;
-  const han = (text.match(/[\u3400-\u9fff]/g) || []).length;
-  const latin = (text.match(/[A-Za-z]/g) || []).length;
-  // numbers, glyph debris and punctuation only
-  if (han + latin < 8) return true;
-  // a real slide carries at least one line long enough to be a sentence; frames
-  // where the teacher is writing by hand OCR into a pile of short stubs
-  let longest = 0;
-  for (const line of text.split('\n')) {
-    const n = (line.replace(/\s+/g, '').match(/[\u3400-\u9fffA-Za-z]/g) || []).length;
-    if (n > longest) longest = n;
+  const bare = (text || '').replace(/\s+/g, '');
+  if (!bare) return true;
+  if (bare.length < 4) return true;
+  const han = (bare.match(/\p{Script=Han}/gu) || []).length;
+  if (han + (bare.match(/\p{L}/gu) || []).length < 4) return true;
+  if (isChatter(text)) return true;
+  const lowered = bare.toLowerCase();
+  for (const phrase of CHROME) {
+    if (lowered.includes(phrase.toLowerCase())) return true;
   }
-  if (longest < 12) return true;
-  let hits = 0;
-  const lower = text.toLowerCase();
-  // app names arrive in whatever case the UI uses: 'Goodnotes', 'GoodNotes'
-  for (const phrase of CHROME) if (lower.includes(phrase.toLowerCase())) hits += 1;
-  if (hits >= 2 || (hits >= 1 && text.length < 40)) return true;
-  return isChatter(text);
+  return false;
 }
 
-/**
- * A chat panel or a meeting control bar reads as many very short lines; a slide
- * reads as a few long ones. This is what separates them without knowing the app.
- * @param {string} text cleaned text
- */
 export function isChatter(text) {
   const lines = text.split('\n').map((l) => l.replace(/[\s·.。,，、:：;；!！?？'"()（）[\]【】<>-]/g, '')).filter(Boolean);
   if (lines.length < 6) return false;
@@ -129,8 +114,8 @@ export function isChatter(text) {
  * bottom. Both rules are geometric, so they hold for any app the user recorded.
  * @param {{text:string, lines:{text:string,x0:number,y0:number,x1:number,y1:number}[], width:number, height:number}} rec
  */
-export function screenText(rec) {
-  if (!rec) return '';
+export function screenLines(rec) {
+  if (!rec) return [];
   const H = rec.height || 0;
   const W = rec.width || 0;
   const kept = [];
@@ -144,7 +129,129 @@ export function screenText(rec) {
     if (bottom > 0.94 && wide < 0.35) continue;
     kept.push(line.text);
   }
-  return cleanOcr(kept.join(String.fromCharCode(10)));
+  return kept;
+}
+
+/**
+ * Text of one recognised screen, minus the window furniture. A tab strip or a
+ * title bar is a SHORT line near the TOP edge; a status bar is short and at the
+ * bottom. Both rules are geometric, so they hold for any app the user recorded.
+ * @param {{text:string, lines:{text:string,x0:number,y0:number,x1:number,y1:number}[], width:number, height:number}} rec
+ */
+export function screenText(rec) {
+  return cleanOcr(screenLines(rec).join(String.fromCharCode(10)));
+}
+
+/** how many characters of actual content a string carries */
+export function contentChars(text) {
+  if (!text) return 0;
+  const m = text.match(/[\p{Script=Han}\p{L}\p{N}]/gu);
+  return m ? m.length : 0;
+}
+
+/**
+ * Characters that read as language: Han ideographs plus latin runs of three or
+ * more letters. Single letters and lone digits are what a handwritten page and
+ * an icon both degrade into ("h < m", "z-r"), so they do not count here.
+ */
+export function wordChars(text) {
+  if (!text) return 0;
+  let n = 0;
+  for (const ch of text) if (/\p{Script=Han}/u.test(ch)) n += 1;
+  for (const run of text.match(/[A-Za-z]{3,}/g) || []) n += run.length;
+  return n;
+}
+
+/** punctuation that only appears in prose, formulas and example numbering */
+const PROSE_MARKS = /[，。：；、！？（）()《》〈〉「」【】,.?!:;=+\-\u00d7\u00f7<>\[\]{}]/u;
+
+/**
+ * True when a screen's lines carry enough real text to be worth quoting.
+ *
+ * The hard case is handwriting: a page of scribbled formulas reaches OCR as
+ * strings of unrelated characters ("亿天小釒一 0 立去千凸到") that are eight to ten
+ * characters long and therefore look like text. What separates invented
+ * characters from read ones is shape, not length -- real text arrives with
+ * punctuation, decimal points, brackets or an "=" in it.
+ *
+ * @param {string[]} lines
+ */
+export function readableScreen(lines) {
+  if (!lines || !lines.length) return false;
+  let total = 0;
+  for (const line of lines) {
+    const words = wordChars(line);
+    total += words;
+    if (words >= 12) return true;
+    if (words >= 8 && PROSE_MARKS.test(line)) return true;
+  }
+  // a bulleted page can be many short lines that only add up together
+  return total >= 24;
+}
+
+/** the shape a line has to keep to count as "the same line" across screens */
+function lineKey(text) {
+  return text.replace(/[^\p{Script=Han}\p{L}\p{N}]/gu, '').slice(0, 24);
+}
+
+/**
+ * The same key with the digits gone. A recorder's clock reads 11:24 on one
+ * frame and 11:36 on the next, so an exact key never repeats; a lecture's
+ * "例题 1" would also collapse into "例题", which is why this looser key is only
+ * allowed to delete SHORT lines that appear on nearly every screen.
+ */
+function fuzzyKey(text) {
+  return text.replace(/[^\p{Script=Han}\p{L}]/gu, '').slice(0, 24);
+}
+
+/**
+ * Drop the lines the recording tool paints on every single frame.
+ *
+ * A hard-coded list of app names cannot cover every recorder in the world, and
+ * a lecture's own title is often what such a list would eat. Frequency is the
+ * honest test: a line that appears on most screens is furniture, a line that
+ * appears on one screen is content.
+ *
+ * @param {{t:number, lines:string[]}[]} screens in time order
+ * @param {{share?: number}} [opts]
+ */
+export function dropBoilerplate(screens, opts = {}) {
+  const share = opts.share ?? 0.5;
+  if (screens.length < 3) return { screens, dropped: [] };
+  const seen = new Map();
+  for (const s of screens) {
+    const uniq = new Set();
+    for (const line of s.lines) {
+      const k = lineKey(line);
+      if (k) uniq.add(k);
+    }
+    for (const k of uniq) seen.set(k, (seen.get(k) ?? 0) + 1);
+  }
+  const floor = Math.max(3, Math.ceil(screens.length * share));
+
+  // second tier: a clock or a page counter changes every frame, so match it
+  // with the digits removed, but only for SHORT lines and only when they are
+  // almost everywhere -- otherwise "例题 1" and "例题 2" would vanish together
+  const fuzzyFloor = Math.max(4, Math.ceil(screens.length * 0.8));
+  const fuzzy = new Map();
+  for (const s of screens) {
+    const uniq = new Set();
+    for (const line of s.lines) {
+      if (lineKey(line).length > 16) continue;
+      const k = fuzzyKey(line);
+      if (k.length >= 2) uniq.add(k);
+    }
+    for (const k of uniq) fuzzy.set(k, (fuzzy.get(k) ?? 0) + 1);
+  }
+  const furnitureFuzzy = new Set();
+  for (const [k, n] of fuzzy) if (n >= fuzzyFloor) furnitureFuzzy.add(k);
+
+  const furniture = new Set();
+  for (const [k, n] of seen) if (n >= floor) furniture.add(k);
+  const isFurniture = (line) => furniture.has(lineKey(line))
+    || (lineKey(line).length <= 16 && furnitureFuzzy.has(fuzzyKey(line)));
+  const out = screens.map((s) => ({ ...s, lines: s.lines.filter((line) => !isFurniture(line)) }));
+  return { screens: out, dropped: [...furniture].concat([...furnitureFuzzy]) };
 }
 
 /** character bigram set, ignoring punctuation and whitespace */
@@ -294,6 +401,14 @@ export async function runRead(opts) {
     input, ffmpegPath, start = 0, end = 0, signal,
   } = opts;
   const maxScreens = Math.min(opts.maxScreens ?? READ_DEFAULTS.maxScreens, READ_DEFAULTS.maxScreens);
+  // a B站 link has to become a file first; everything below works on a path
+  let source = input;
+  let sourceTitle = null;
+  if (isBilibili(input)) {
+    const file = await bilibiliFile(input, { ffmpegPath, signal, log: opts.log });
+    source = file.path;
+    sourceTitle = file.meta?.title ?? null;
+  }
   const crop = opts.crop ?? READ_DEFAULTS.crop;
   const backend = ocrBackend();
   if (!backend.ok) throw new Error(`cannot read text: ${backend.reason}`);
@@ -301,7 +416,7 @@ export async function runRead(opts) {
   const wall = Date.now();
 
   const t0 = Date.now();
-  const { grids, stamps } = await decodeKeyframes(ffmpegPath, input, { start, end, signal });
+  const { grids, stamps } = await decodeKeyframes(ffmpegPath, source, { start, end, signal });
   timings.scan = Date.now() - t0;
 
   const picked = [];
@@ -332,7 +447,7 @@ export async function runRead(opts) {
         names.set(i, name);
         await new Promise((resolve, reject) => {
           const child = spawn(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-nostdin',
-            '-ss', t.toFixed(3), '-i', input, '-frames:v', '1', '-vf', cropFilter,
+            '-ss', t.toFixed(3), '-i', source, '-frames:v', '1', '-vf', cropFilter,
             '-y', join(dir, `${name}.png`)], { stdio: 'ignore', signal });
           child.on('error', reject);
           child.on('close', resolve);
@@ -345,13 +460,24 @@ export async function runRead(opts) {
     const recognised = await ocrDirectory(dir, { signal });
     timings.ocr = Date.now() - t2;
 
-    const screens = [];
+    const raw = [];
     for (const i of picked) {
-      const text = screenText(recognised.get(names.get(i)));
-      if (!text || isChrome(text)) continue;
-      screens.push({ t: start + (stamps[i] ?? 0), text });
+      const lines = screenLines(recognised.get(names.get(i)));
+      if (!lines.length) continue;
+      raw.push({ t: start + (stamps[i] ?? 0), lines });
     }
-    screens.sort((a, b) => a.t - b.t);
+    raw.sort((a, b) => a.t - b.t);
+    const cleaned = dropBoilerplate(raw);
+    const screens = [];
+    for (const s of cleaned.screens) {
+      const text = cleanOcr(s.lines.join(String.fromCharCode(10)));
+      if (isChrome(text)) continue;
+      // A handwritten page reaches OCR as a handful of fragments. A page that
+      // still yields a heading or an example number is worth its few tokens;
+      // a frame of loose strokes is not. The header says when little was found.
+      if (!readableScreen(s.lines)) continue;
+      screens.push({ t: s.t, text });
+    }
     const merged = mergeScreens(screens);
     // a second pass at a looser threshold: the leftover duplicates are the ones
     // whose OCR came out degraded, so their bigrams overlap less
@@ -359,29 +485,39 @@ export async function runRead(opts) {
     timings.total = Date.now() - wall;
 
     const heads = outline(merged);
-    const head = `# ${input.split(/[\\/]/).pop()} — read as text · ${deduped.length} screens · `
-      + `${stamps.length} keyframes · ${timings.total} ms`;
+    const head = `# ${sourceTitle || input.split(/[\\/]/).pop()} — read as text · ${deduped.length >= 3 ? deduped.length : 0} screens · ${stamps.length} keyframes · ${timings.total} ms`;
     const body = [head];
+    // Two fragments of strokes are not a reading. Under three screens there is
+    // nothing to quote that a reader could use, and quoting it anyway is how a
+    // tool loses trust on its first handwritten video.
+    // `deduped` is the second dedupe pass; quoting `merged` here would undo it
+    const usable = deduped.length >= 3 ? deduped : [];
+    if (deduped.length < 5) {
+      body.push('', `note: only ${deduped.length} screen${deduped.length === 1 ? '' : 's'} carried readable text `
+        + `out of ${raw.length} distinct pictures -- this video may be handwritten, be a camera recording, `
+        + 'or have no slides. video_storyboard shows the pictures; the audio summary still applies.');
+    }
     if (heads.length > 2) {
       body.push('', '## outline');
       for (const h of heads) body.push(`${tc(h.t)} ${h.head}`);
     }
     body.push('');
-    for (const s of merged) {
+    for (const s of usable) {
       const span = s.tEnd > s.t + 2 ? `${tc(s.t)}–${tc(s.tEnd)}` : tc(s.t);
       body.push(`[${span}] ${s.text}`);
     }
     const text = body.join('\n');
     return {
       text,
-      screens: deduped,
-      outline: heads,
+      screens: usable,
+      outline: usable.length ? heads : [],
       stats: {
         keyframes: stamps.length,
         clustered: picked.length,
-        screens: deduped.length,
+        screens: usable.length,
         chars: text.length,
         fromScreen: Math.round(text.length / Math.max(1, merged.length)),
+        furniture: cleaned.dropped.length,
       },
       timings,
     };

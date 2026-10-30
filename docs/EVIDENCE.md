@@ -202,6 +202,31 @@ returns in 226 ms; every line the parser wants is already on stderr by then.
 The full two-hour storyboard is still a 38-second call, so the useful move for
 lecture-length material remains `start`/`end` windows.
 
+### Reading text
+
+`video_read` on the same files, measured on the machine described above
+(Windows built-in OCR, no model, no network):
+
+| input | wall clock | screens | characters |
+| --- | --- | --- | --- |
+| 2-hour lecture (`\u7b2c\u4e8c\u6b21\u8bfe`, 2560x1440) | **91 s** (scan 11 / grab 39 / OCR 40) | 56 | 7 588 |
+| same lecture, 15-minute window | 16 s | 9 | 1 180 |
+| 36-second text-card clip (corpus D) | **1.1 s** | 6 | 584 |
+| 34-minute hand-written summary (B\u7ad9) | 6 s | 0 | --- |
+
+The hand-written video is the interesting row: it returns **no screens** and a
+note saying why. It has content, but not text this can honestly quote.
+
+The outline recovered from the 2-hour lecture names examples 1-11 at
+00:45 / 05:27 / 17:20 / 27:58 / 41:05 / 56:16 / 67:34 / 76:44 / 85:38 / 90:10 /
+103:13 --- which is the structure of the lecture, derived from the pictures.
+
+A B\u7ad9 link costs one HTTP call for `video_probe` (**226 ms, no download**), and
+the first storyboard or read pays for the download once: a 3:33 music video is
+49.6 MB, a 34-minute 720P lecture is 51.7 MB (about 55 s on this connection), and
+the file is cached under `$DSH_HOME/cache/video-vision/bilibili/` for every call
+after that.
+
 ## Why it is fast
 
 | phase (70 s, 1 910×984, 30 fps) | |

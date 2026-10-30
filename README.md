@@ -10,13 +10,18 @@ video_probe       metadata + a reading plan, no frames decoded
 video_storyboard  one contact sheet + a text index binding every cell to a timecode
 video_zoom        1-9 large cells over a short window
 video_read        the whole video as timestamped TEXT — for lectures, slides, screen recordings
+
+Input can be a file path, a direct media URL, or a **B站 link** (`bilibili.com/video/BV…`, a bare
+BV id, an `av` id, or a `b23.tv` short link) — the video is downloaded to a cache once and read like
+any other file.
 ```
 
 Picture paths are for film, sport, gameplay, anything where the picture *is* the
 content. When the content is text on the screen, `video_read` wins outright: a
-two-hour lecture becomes ~18k characters of `[mm:ss] text` plus an outline, which
-the model can quote, search and rewrite into notes — where a 1024-token contact
-sheet is unreadable at that size.
+two-hour lecture becomes ~7.6k characters of `[mm:ss] text` plus an outline of its
+eleven worked examples, which the model can quote, search and rewrite into notes —
+where a 1024-token contact sheet is unreadable at that size. It costs 91 s for two
+hours of video and 1.1 s for a 36-second clip.
 
 > Design notes with the measurements behind every decision: [docs/DESIGN.md](docs/DESIGN.md).
 > Measured behaviour, per-clip tables and error margins: [docs/EVIDENCE.md](docs/EVIDENCE.md).
@@ -89,6 +94,9 @@ Nine clips, frame-exact ground truth, one machine, driven directly as a module
 | cut recall / precision | 1.000 / 0.774 |
 | shot coverage | **0.963** |
 | text in the result | 477 chars |
+| a 2-hour lecture, read as text | **91 s**, 56 screens, 7.6k chars |
+| a 36-second card clip, read as text | **1.1 s**, 6 screens |
+| a B站 link, probe only (no download) | **226 ms** |
 
 On a **13-minute** film one call returns **one** image: 28 cells at 331x186,
 1 024 tokens, 6.2 s, ~1 353 tokens of context including the index. Full table
@@ -134,8 +142,8 @@ the npm roaming prefix, `/usr/local/bin`, an `imageio-ffmpeg` wheel inside
 Verify a machine end to end (no video needed — it builds one):
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 18 checks (19 with ffprobe), builds its own clip
-node bin/selfcheck.mjs --smoke --host   # 33 checks: validates all four tools against the
+node bin/selfcheck.mjs --smoke          # 17 checks, builds its own clip
+node bin/selfcheck.mjs --smoke --host   # 32 checks: validates all four tools against the
                                         # installed Harness's schema engine
 node --test test/                       # 174 tests, no network, hermetic temp dirs
 ```
@@ -207,6 +215,12 @@ change, OCRs the slide area of each cluster once, then merges screens that say
 the same thing. Near-identical slides are collapsed from both ends: OCR noise
 makes exact matching useless, so sameness is a character-bigram similarity test.
 
+Lines that appear on most screens are dropped as furniture — that is how the
+recorder's own header goes away without this plugin knowing which recorder it was.
+When a video has almost no readable text (handwriting, a camera pointed at a room)
+it says so instead of quoting strokes: `0 screens · note: this video may be
+handwritten … try video_storyboard`.
+
 What gets thrown away is the recorder, not the lecture: a tab strip is a short
 line near the top edge, a status bar is a short line at the bottom, a chat panel
 is a screen made of very short lines, and a frame where the teacher is writing
@@ -232,13 +246,15 @@ elsewhere the tool says so and you fall back to `video_storyboard`.
 
 ## What it cannot do
 
-- **No OCR and no ASR.** Reading text is the model's job, done from pixels;
-  speech is not transcribed unless the file carries a subtitle track of its own.
-  There is no model download, no API key, no network call.
-- **No downloader.** Site pages (YouTube, Bilibili) are not resolved: that needs
-  `yt-dlp`, which this plugin neither ships nor shells out to. Download the file
-  and pass the path. Direct `http(s)` URLs to a media file do work, through
-  ffmpeg itself.
+- **No ASR.** Speech is not transcribed unless the file carries a subtitle track of
+  its own; the audio summary (speech share, loudness, onsets) is what you get.
+  `video_read` does OCR, but only with the Windows built-in engine behind
+  `Windows.Media.Ocr`: on Linux and macOS it reports that it is unavailable instead
+  of pretending. No model download, no API key.
+- **B站 only, and only what it hands out without an account.** A B站 link is
+  resolved through the public endpoints, which means 720P unless you supply a
+  cookie; there is no `yt-dlp`, so other sites still have to be downloaded first.
+  Paywalled and members-only parts are not readable.
 - **Cuts are detected, not understood.** A whip pan and a cut can look alike in
   a 96x54 grid; the classifier prefers "not a cut" when the change is local.
 - **It is not a player.** One call = one still image of up to 28 moments.

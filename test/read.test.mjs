@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cleanOcr, isChrome, isChatter, screenText, textSimilarity, mergeScreens, outline, gridChange,
-  READ_DEFAULTS,
+  cleanOcr, isChrome, isChatter, screenText, screenLines, contentChars, wordChars, dropBoilerplate, readableScreen,
+  textSimilarity, mergeScreens, outline, gridChange, READ_DEFAULTS,
 } from '../src/read.js';
 
 test('cleanOcr puts CJK prose back together', () => {
@@ -123,7 +123,39 @@ test('a chat panel is chrome, a slide is not', () => {
   assert.equal(isChatter(slide), false);
 });
 
-test('a frame the teacher was scribbling on is not a screen', () => {
+test('a frame the teacher was scribbling on carries too little text to keep', () => {
   const scribble = ['亿天小', '一 0', '立去干', '凸到', '。'].join(NL);
-  assert.equal(isChrome(scribble), true);
+  // not "chrome" any more -- chrome is furniture, and this is content the OCR
+  // could not read. The keep/reject decision now lives in the content count.
+  assert.equal(isChrome(scribble), false);
+  assert.equal(readableScreen(scribble.split(NL)), false);
+  assert.equal(readableScreen(['例题 1 求函数的定义域与值域']), true);
+  assert.equal(readableScreen(['十 ^ 十一一十', 'h < m']), false);
+  // invented characters: long enough, but no punctuation, no formula marks
+  assert.equal(readableScreen(['亿天小釒一 0 立去千凸到']), false);
+  // a page of bare formulas does not carry words: it is left to the pictures
+  assert.equal(readableScreen(['例题 1 求 (n-2)x180 的值']), false);
+  // a page that mixes a formula with a sentence is kept
+  assert.equal(readableScreen(['例题 3 证存在 2024 点集使 M(P)=44·m(P)']), true);
+  // a bare title is not rejected just because it is short, if the page adds up
+  assert.equal(readableScreen(['导数的定义', '极 限 的 定 义', '连 续']), false);
+  assert.equal(wordChars('BENCHMARK OVERVIEW'), 17);
+  assert.equal(readableScreen(['BENCHMARK OVERVIEW']), true);
+});
+
+test('lines every screen carries are furniture, lines one screen carries are content', () => {
+  const screens = [
+    { t: 0, lines: ['11月24日周日', '正在共享屏幕', '第一节 极限的定义'] },
+    { t: 60, lines: ['11月24日周日', '正在共享屏幕', '例题 1 求函数的定义域'] },
+    { t: 120, lines: ['11月24日周日', '正在共享屏幕', '例题 2 讨论间断点'] },
+  ];
+  const { screens: kept, dropped } = dropBoilerplate(screens);
+  assert.deepEqual(dropped.sort(), ['11月24日周日', '正在共享屏幕'].sort());
+  assert.deepEqual(kept.map((s) => s.lines), [['第一节 极限的定义'], ['例题 1 求函数的定义域'], ['例题 2 讨论间断点']]);
+});
+
+test('a short read says so instead of pretending the video was empty', () => {
+  const one = [{ t: 0, lines: ['例题 1 求函数的定义域与值域'] }];
+  assert.equal(dropBoilerplate(one).dropped.length, 0);
+  assert.ok(contentChars('例题 1 求函数的定义域与值域') >= 8);
 });

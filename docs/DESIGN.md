@@ -325,3 +325,40 @@ default already picks the core count, so there is nothing left to claim.
 repeat a previous shot). It merges clip D's six text cards into one cell: they
 differ only in a title and three bullet lines, which is exactly the content the
 model was asked to read. The current rule compares only within a shot.
+
+## 9. Reading text: what the agent needs from a lecture
+
+A picture of a slide is a lossy re-encoding of text that is already digital. When
+the video is a lecture, a screen recording or a slide deck, the useful output is
+not a grid of thumbnails but the words, each stamped with when it was on screen.
+
+`video_read` decodes **only keyframes** (`-skip_frame nokey`, positioned before
+`-i`), because a slide cannot change between two of them. On the 2-hour corpus
+lecture that is 975 frames instead of 216 000: **11 s of decoding for the whole
+video**. Neighbouring keyframes are clustered by picture change on a 96x54 luma
+grid, one frame per cluster is grabbed 0.35 s after the keyframe (a keyframe can
+land mid-scroll), and all of them go through one OCR process.
+
+The judgement calls, in the order they failed on real files:
+
+1. **Geometry beats a crop list.** A fixed slide-area crop learned from one
+   recorder cuts the first character off a card that starts at the left edge.
+   The crop is now a conservative top/bottom trim; the filtering is per OCR line,
+   by position: short line near the top edge, short line at the bottom edge.
+2. **Furniture is whatever is on most screens.** A clock reads a different time
+   on every frame, so an exact-line test never fires. Lines are keyed twice, with
+   and without digits; the digit-free key may only delete short lines that appear
+   on nearly every screen, which is why `例题 1` and `例题 2` survive together.
+3. **Shape, not length, separates text from strokes.** Hand-writing OCRs into
+   eight-to-ten invented characters in a row --- long enough to pass a length
+   test, useless as a quote. Real text arrives with punctuation, a decimal point,
+   a bracket or an `=`.
+4. **Under three readable screens, quote nothing.** Two fragments of strokes are
+   not a reading; the result says what was probably going on and points at
+   `video_storyboard`.
+
+Cost of a 2-hour lecture: **91 s** wall clock (scan 11 s, grab 39 s, OCR 40 s),
+56 screens, 7 588 characters, plus an outline that finds all eleven worked
+examples. A 36-second text-card clip is 1.1 s. Against the storyboard path on the
+same lecture (163 s, one 1 024-token image, text unreadable at that size) this is
+the cheaper and more useful answer whenever the content is text on screen.

@@ -14,7 +14,18 @@ export const STORYBOARD_TOOL = 'video_storyboard';
 export const ZOOM_TOOL = 'video_zoom';
 export const READ_TOOL = 'video_read';
 
-const INPUT_DESC = 'Path to a video file (absolute, or relative to the working directory). A direct http(s) URL to a media file also works when ffmpeg can fetch it; a site page (YouTube, Bilibili) must be downloaded first, because resolving one needs a downloader this plugin does not ship.';
+const INPUT_DESC = 'A video: a file path (absolute, or relative to the working directory), a direct http(s) URL '
+  + 'to a media file that ffmpeg can fetch, or a B站 link (bilibili.com/video/BV…, a bare BV id, an av id, or a b23.tv '
+  + 'short link). A B站 link is resolved and downloaded to a cache on first use, so the first call is slower. '
+  + 'Other site pages (YouTube and friends) are not resolved: download those first.';
+
+const BILI_NOTE = [
+  '',
+  'B站 links work directly: the video is fetched at the best quality this machine can reach without an account',
+  '(720P by default) and cached under $DSH_HOME/cache/video-vision, so a second question about the same video',
+  'costs nothing. Set DSH_BILIBILI_COOKIE (or write the cookie to $DSH_HOME/bilibili-cookies.txt) to reach 1080P,',
+  'and DSH_BILIBILI_MAX_HEIGHT to cap what is downloaded.',
+].join('\n');
 
 export function probeSpec() {
   return {
@@ -83,7 +94,8 @@ export function storyboardSpec(ctx) {
       're-read the index of a long film at no image cost, and video_zoom when one window needs real detail.',
       'Re-calling the same window is cached: the text index is free, so paging with `textOnly` + `cellRange`',
       'or asking for one window at a time is the intended way to work through a long file.',
-    ].join('\n'),
+      ].join('\n') + BILI_NOTE,
+
     parameters: {
       type: 'object',
       properties: {
@@ -153,7 +165,8 @@ export function zoomSpec(ctx) {
       'The window should be short (a few seconds to ~20 s): the point is per-cell pixels, not coverage.',
       'Cells are still placed on cuts inside the window, so a 3-cell zoom over a 6 s ACTION BEAT shows',
       'three distinct shots rather than three near-identical frames.',
-    ].join('\n'),
+      ].join('\n') + BILI_NOTE,
+
     parameters: {
       type: 'object',
       properties: {
@@ -217,7 +230,8 @@ export function readSpec(ctx) {
       'fall back to video_storyboard.',
       '',
       'Repeats are cached: asking again for the same file and window costs only the wait.',
-    ].join('\n'),
+      ].join('\n') + BILI_NOTE,
+
     parameters: {
       type: 'object',
       properties: {
