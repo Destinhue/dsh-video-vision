@@ -159,3 +159,37 @@ test('a short read says so instead of pretending the video was empty', () => {
   assert.equal(dropBoilerplate(one).dropped.length, 0);
   assert.ok(contentChars('例题 1 求函数的定义域与值域') >= 8);
 });
+
+test('the read crop keeps the bottom edge, where subtitles live', () => {
+  const { crop } = READ_DEFAULTS;
+  assert.ok(crop.y + crop.h >= 0.999, `crop stops at ${crop.y + crop.h}, above the subtitle band`);
+  assert.ok(crop.y > 0, 'the top strip is still trimmed');
+  assert.ok(crop.x <= 0.05 && crop.x + crop.w >= 0.95, 'the full width is kept');
+});
+
+test('a wide line near the bottom survives, a short one is a status bar', () => {
+  const W = 1228;
+  const H = 636;
+  // burned-in subtitle: one wide line at 86% of the crop
+  const subtitle = screenLines({
+    width: W,
+    height: H,
+    lines: [{ text: '明明是那些中国用户违反了我的使用条例！', x0: 101, y0: 546, x1: 1095, y1: 598 }],
+  });
+  assert.equal(subtitle.length, 1);
+  assert.match(subtitle[0], /使用条例/);
+  // status bar: short text hugging the bottom
+  const status = screenLines({
+    width: W,
+    height: H,
+    lines: [{ text: '输入搜索内容', x0: 200, y0: 610, x1: 330, y1: 634 }],
+  });
+  assert.equal(status.length, 0);
+  // an even shorter line that is not near an edge is kept
+  const caption = screenLines({
+    width: W,
+    height: H,
+    lines: [{ text: '例题 1', x0: 300, y0: 300, x1: 420, y1: 340 }],
+  });
+  assert.equal(caption.length, 1);
+});

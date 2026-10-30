@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.2.2
+
+A 95-second clip of burned-in anime subtitles came back as "no text here". It is
+text all the way through, and the two reasons it was missed both matter beyond
+that clip.
+
+### Fixed
+
+- **The read crop cut the subtitle off.** It stopped at 91.5% of the frame
+  height, which is exactly where burned-in subtitles sit, so a video whose whole
+  content is a subtitle line produced nothing and `video_read` honestly reported
+  the wrong thing. The crop now trims only the recorder's top bar and keeps the
+  bottom edge; the geometric rules that drop a status bar (short line, very close
+  to the edge) still apply, and a subtitle is a wide line, so it survives.
+- **Short videos are sampled on the clock, not on keyframes.** Keyframes arrive
+  every ~5 s, so a 95 s clip that cuts 28 times yielded ~20 looks at ~80 lines of
+  dialogue. Under 15 minutes the frames are now sampled every 1.2 s; longer
+  material keeps the keyframe path, where the cost is OCR rather than decode.
+
+### Measured
+
+| | 1.2.1 | 1.2.2 |
+|---|---|---|
+| 95 s subtitled B站 clip | 0 screens, "no text here" | **11 screens, 539 chars, 5.6 s** |
+| 36 s text-card clip | 6 screens, 584 chars, 1.1 s | 6 screens, 593 chars, 1.3 s |
+| 1:59:54 lecture | 91 s, 56 screens, 7 588 chars | **87 s, 53 screens, 7 663 chars** |
+
 ## 1.2.1
 
 Board work — a lecture, a screen share, a whiteboard being written on — is one

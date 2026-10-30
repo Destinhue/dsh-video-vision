@@ -28,6 +28,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ocrBackend, ocrDirectory } from './ocr.js';
 import { isBilibili, bilibiliFile } from './bili.js';
+import { probeVideo } from './media.js';
 
 export const READ_DEFAULTS = {
   gridWidth: 96,
@@ -38,9 +39,15 @@ export const READ_DEFAULTS = {
   // how much of a pair of screens must share text bigrams to be the same screen
   textSimilarity: 0.55,
   maxScreens: 400,
-  // trim only the recorder's top and bottom bars, keep the full width -- a
-  // slide that starts near the left edge loses its first character otherwise
-  crop: { x: 0.02, y: 0.115, w: 0.96, h: 0.80 },
+  // trim only the recorder's top bar, keep the full width and the bottom edge:
+  // a slide that starts near the left edge loses its first character under a
+  // left crop, and burned-in subtitles live in the last 5% of the frame
+  crop: { x: 0.02, y: 0.115, w: 0.96, h: 0.885 },
+  // below this length the picture changes faster than the keyframe interval, so
+  // sampling follows the clock instead: a 95 s clip has ~20 keyframes but ~80
+  // subtitle lines
+  denseSeconds: 1.2,
+  denseUnder: 900,
   grabWorkers: 8,
   settle: 0.35,
 };
@@ -353,13 +360,15 @@ export function gridChange(a, b, delta = 10, dark = 12) {
 }
 
 /** decode keyframes only, returning their block grids and timestamps */
-function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal } = {}) {
+function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, dense = 0 } = {}) {
   const { gridWidth: w, gridHeight: h } = READ_DEFAULTS;
-  const args = ['-hide_banner', '-nostdin', '-skip_frame', 'nokey'];
+  const args = ['-hide_banner', '-nostdin'];
+  if (!dense) args.push('-skip_frame', 'nokey');
   if (start) args.push('-ss', String(start));
   args.push('-i', input);
   if (end) args.push('-t', String(end - start));
-  args.push('-vf', `scale=${w}:${h}:flags=fast_bilinear,showinfo,format=rgb24`,
+  const pre = dense ? `fps=1/${dense},` : '';
+  args.push('-vf', `${pre}scale=${w}:${h}:flags=fast_bilinear,showinfo,format=rgb24`,
     '-vsync', '0', '-f', 'rawvideo', '-');
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'], signal });
@@ -416,8 +425,18 @@ export async function runRead(opts) {
   const wall = Date.now();
 
   const t0 = Date.now();
-  const { grids, stamps } = await decodeKeyframes(ffmpegPath, source, { start, end, signal });
+  // a short clip changes faster than its keyframes do, so sample on the clock
+  let dense = 0;
+  if (!end) {
+    try {
+      const meta = await probeVideo(source, { ffmpegPath });
+      const span = (meta.duration || 0) - start;
+      if (span > 1 && span <= READ_DEFAULTS.denseUnder) dense = READ_DEFAULTS.denseSeconds;
+    } catch { /* no duration: fall back to keyframes */ }
+  }
+  const { grids, stamps } = await decodeKeyframes(ffmpegPath, source, { start, end, signal, dense });
   timings.scan = Date.now() - t0;
+  timings.dense = dense;
 
   const picked = [];
   let last = -1;
