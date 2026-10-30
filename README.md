@@ -20,8 +20,8 @@ Picture paths are for film, sport, gameplay, anything where the picture *is* the
 content. When the content is text on the screen, `video_read` wins outright: a
 two-hour lecture becomes ~7.6k characters of `[mm:ss] text` plus an outline of its
 eleven worked examples, which the model can quote, search and rewrite into notes —
-where a 1024-token contact sheet is unreadable at that size. It costs 91 s for two
-hours of video and 1.1 s for a 36-second clip.
+where a 1024-token contact sheet is unreadable at that size. It costs 87 s for two
+hours of video, 5.6 s for a 95-second subtitled clip, and 1.3 s for a 36-second one.
 
 > Design notes with the measurements behind every decision: [docs/DESIGN.md](docs/DESIGN.md).
 > Measured behaviour, per-clip tables and error margins: [docs/EVIDENCE.md](docs/EVIDENCE.md).
@@ -102,8 +102,9 @@ Nine clips, frame-exact ground truth, one machine, driven directly as a module
 | cut recall / precision | 1.000 / 0.774 |
 | shot coverage | **0.963** |
 | text in the result | 477 chars |
-| a 2-hour lecture, read as text | **91 s**, 56 screens, 7.6k chars |
-| a 36-second card clip, read as text | **1.1 s**, 6 screens |
+| a 2-hour lecture, read as text | **87 s**, 53 screens, 7.7k chars |
+| a 36-second card clip, read as text | **1.3 s**, 6 screens |
+| a 95-second subtitled clip, read as text | **5.6 s**, 11 screens |
 | a B站 link, probe only (no download) | **226 ms** |
 
 On a **13-minute** film one call returns **one** image: 28 cells at 331x186,
