@@ -253,10 +253,73 @@ elsewhere the tool says so and you fall back to `video_storyboard`.
 
 ---
 
+### Speech, when you have an engine
+
+`video_storyboard` and `video_read` can quote what is being **said** as well as
+what is written, if you point `DSH_ASR_CMD` at an engine you already trust:
+
+```
+set DSH_ASR_CMD=C:\python\python.exe F:\asr\engine.py --model small {wav} {out}
+```
+
+The window's audio is extracted once (16 kHz mono), your command runs, and the SRT
+it writes to `{out}` — or prints on stdout — is parsed. Each line is quoted on the
+cell that contains its midpoint, so nothing is repeated. A subtitle track, when
+present, always wins: it was captioned by a human and costs no decode.
+
+No engine is bundled, deliberately. This package is 600 KB of code with zero
+dependencies, and the accuracy lives in the model (tiny 75 MB, small 484 MB,
+medium 1.5 GB). Measured on two minutes of a real lecture on 16 threads:
+
+| engine | transcript time | two hours, extrapolated | what comes out |
+|---|---|---|---|
+| `tiny` | 2.5 s | ~2.5 min | garbled: `選抜` for 选法, `按摩機束` for 枚举 |
+| `small` | 15.5 s | ~15 min | readable, Traditional output, `地规` for 递推 |
+
+The host's own offline recogniser was tried and rejected: `System.Speech` zh-CN
+turned the same minute into one 60-character line at **1.7 % confidence**. That is
+worse than returning nothing, which is why this is a hook and not a feature.
+
+So the split is: slides and screen recordings go through `video_read` (87–112 s
+for two hours), speech-only material through ASR, and when you need both, read
+first and run ASR on the window you care about by passing `start`/`end`.
+
+### Speech, when you have an engine
+
+`video_storyboard` and `video_read` can quote what is being **said** as well as
+what is written, if you point `DSH_ASR_CMD` at an engine you already trust:
+
+```
+set DSH_ASR_CMD=C:\python\python.exe F:\asr\engine.py --model small {wav} {out}
+```
+
+The window's audio is extracted once (16 kHz mono), your command runs, and the SRT
+it writes to `{out}` — or prints on stdout — is parsed. Each line is quoted on the
+cell that contains its midpoint, so nothing is repeated. A subtitle track, when
+present, always wins: it was captioned by a human and costs no decode.
+
+No engine is bundled, deliberately. This package is 600 KB of code with zero
+dependencies, and the accuracy lives in the model (tiny 75 MB, small 484 MB,
+medium 1.5 GB). Measured on two minutes of a real lecture on 16 threads:
+
+| engine | transcript time | two hours, extrapolated | what comes out |
+|---|---|---|---|
+| `tiny` | 2.5 s | ~2.5 min | garbled: `選抜` for 选法, `按摩機束` for 枚举 |
+| `small` | 15.5 s | ~15 min | readable, Traditional output, `地规` for 递推 |
+
+The host's own offline recogniser was tried and rejected: `System.Speech` zh-CN
+turned the same minute into one 60-character line at **1.7 % confidence**. That is
+worse than returning nothing, which is why this is a hook and not a feature.
+
+So the split is: slides and screen recordings go through `video_read` (87–112 s
+for two hours), speech-only material through ASR, and when you need both, read
+first and run ASR on the window you care about by passing `start`/`end`.
+
 ## What it cannot do
 
-- **No ASR.** Speech is not transcribed unless the file carries a subtitle track of
-  its own; the audio summary (speech share, loudness, onsets) is what you get.
+- **No bundled ASR.** Speech is transcribed only when the file carries a subtitle
+  track or when you point `DSH_ASR_CMD` at an engine (above). With neither, you
+  still get the audio summary: speech share, loudness, silences, onsets.
   `video_read` does OCR, but only with the Windows built-in engine behind
   `Windows.Media.Ocr`: on Linux and macOS it reports that it is unavailable instead
   of pretending. No model download, no API key.

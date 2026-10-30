@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.3.0
+
+### Added — speech, by proxy
+
+- `DSH_ASR_CMD` is a speech-to-text hook: `src/asr.js` extracts the window's audio
+  once (16 kHz mono PCM), runs the command with `{wav}` and `{out}` substituted,
+  parses the SRT it writes or prints, and shifts the cues onto the file's clock so
+  a cell at 40:00 is quoted by a line that says 40:00.
+- Quotes go to the cell containing each line's midpoint — the rule the subtitle
+  track already used, so a sentence is quoted once, on the right tile.
+- A configured engine that fails now says so: `asr: unavailable · <reason>`.
+  Before, a broken engine looked exactly like a video with no speech.
+- `docs/DESIGN.md` §10 records why no model is bundled: package size, licence, and
+  the measured 1.7 %-confidence result from the host's own recogniser.
+
+### Fixed — windowed sheets disagreed with themselves
+
+- With `start`/`end`, cell spans were printed on the window's clock while `frame@`
+  and the `(cuts)` count were on the file's clock: a window at 40:00 showed
+  `00:00.00-00:45.16`, claimed zero cuts, and never quoted a line of dialogue.
+  Spans are now shifted once, after planning, in `src/pipeline.js`.
+
+### Measured — two minutes of a 1:59:54 lecture, 2560x1440, 16 threads
+
+| engine | transcript time | two hours, extrapolated | output |
+|---|---|---|---|
+| `faster-whisper` tiny (int8) | 2.5 s | ~2.5 min | garbled (`選抜` for 选法) |
+| `faster-whisper` small (int8) | 15.5 s | ~15 min | readable, Traditional, `地规` for 递推 |
+| `System.Speech` zh-CN (host) | 1.4 s | — | one 60-character line at 1.7 % confidence |
+
+`--test` 197 passing. Corpus unchanged: 67 cells, 3 648 vision tokens, micro F1
+0.872, coverage 0.963.
+
 ## 1.2.2
 
 A 95-second clip of burned-in anime subtitles came back as "no text here". It is

@@ -395,3 +395,36 @@ Cost of a 2-hour lecture: **91 s** wall clock (scan 11 s, grab 39 s, OCR 40 s),
 examples. A 36-second text-card clip is 1.1 s. Against the storyboard path on the
 same lecture (163 s, one 1 024-token image, text unreadable at that size) this is
 the cheaper and more useful answer whenever the content is text on screen.
+
+## 10. Why speech-to-text is a hook and not a feature
+
+The obvious next step after reading the screen is reading the soundtrack, and it
+is the one thing this plugin deliberately does not do by itself.
+
+Three reasons, each measured on this machine against a real 1:59:54 lecture at
+2560x1440:
+
+1. **The host's built-in recogniser is not usable.** `System.Speech` zh-CN (which
+   ships with Windows and needs no download) turned 60 s of this lecture into a
+   single 60-character line of nonsense at **1.7 % confidence**. Shipping that
+   behind an "ASR" label would be worse than returning nothing.
+2. **A usable model is a download.** `faster-whisper` int8 on 16 threads takes
+   2.5 s for two minutes with `tiny` — and writes `選抜` for 选法. With `small` it
+   takes 15.5 s for the same two minutes (about 15 min for two hours) and is
+   readable. That is a 75 MB or 484 MB artifact with its own licence, inside a
+   plugin that is 600 KB of code with zero dependencies.
+3. **It would break the latency promise.** Two hours of lecture costs 87 s through
+   `video_read` today. Adding `small` ASR to every call makes it ~16 minutes, for
+   text that is often *worse* than the slides it would be attached to: OCR reads
+   递推 and 阶乘 correctly, the recogniser writes 地规 and 階層.
+
+So the split follows the content: slides and screen recordings go through the OCR
+path, speech-only material goes through whatever engine the user points
+`DSH_ASR_CMD` at, and a file with both gets the cheap path first plus `start`/`end`
+windows for the parts that matter.
+
+The adapter is a hundred lines because the hard parts are not the model: they are
+extracting the audio once, keeping timestamps on the file's clock instead of the
+window's, and attributing each line to the cell whose span contains its midpoint —
+the same rule the subtitle track uses, which already had a test for the sentence
+that straddles a cut.

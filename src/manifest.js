@@ -108,6 +108,9 @@ export function formatManifest(p) {
   }
   if (transcript && transcript.source) {
     extra.push(`transcript: ${transcript.source}${transcript.segments ? ` · ${transcript.segments.length} segments` : ''}`);
+  } else if (p.asrNote) {
+    // A configured engine that failed must say so; silence reads as "no speech".
+    extra.push(`asr: unavailable · ${String(p.asrNote).slice(0, 120)}`);
   }
   if (scan.motion && scan.motion.cuts > 0) {
     // nothing to add; kept out to save tokens

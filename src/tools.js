@@ -19,6 +19,13 @@ const INPUT_DESC = 'A video: a file path (absolute, or relative to the working d
   + 'short link). A B站 link is resolved and downloaded to a cache on first use, so the first call is slower. '
   + 'Other site pages (YouTube and friends) are not resolved: download those first.';
 
+// Speech is quoted only when the caller configured an engine; saying so in the
+// description costs nothing per call and prevents a "why is there no dialogue".
+const ASR_NOTE = `
+  Speech: a subtitle track is quoted when the file has one. Without one, point
+  DSH_ASR_CMD at an engine that turns {wav} into an SRT at {out} and the same
+  lines are quoted from speech.`;
+
 const BILI_NOTE = [
   '',
   'B站 links work directly: the video is fetched at the best quality this machine can reach without an account',
@@ -96,7 +103,7 @@ export function storyboardSpec(ctx) {
       're-read the index of a long film at no image cost, and video_zoom when one window needs real detail.',
       'Re-calling the same window is cached: the text index is free, so paging with `textOnly` + `cellRange`',
       'or asking for one window at a time is the intended way to work through a long file.',
-      ].join('\n') + BILI_NOTE,
+      ].join('\n') + BILI_NOTE + ASR_NOTE,
 
     parameters: {
       type: 'object',
@@ -167,7 +174,7 @@ export function zoomSpec(ctx) {
       'The window should be short (a few seconds to ~20 s): the point is per-cell pixels, not coverage.',
       'Cells are still placed on cuts inside the window, so a 3-cell zoom over a 6 s ACTION BEAT shows',
       'three distinct shots rather than three near-identical frames.',
-      ].join('\n') + BILI_NOTE,
+      ].join('\n') + BILI_NOTE + ASR_NOTE,
 
     parameters: {
       type: 'object',
@@ -232,7 +239,7 @@ export function readSpec(ctx) {
       'fall back to video_storyboard.',
       '',
       'Repeats are cached: asking again for the same file and window costs only the wait.',
-      ].join('\n') + BILI_NOTE,
+      ].join('\n') + BILI_NOTE + ASR_NOTE,
 
     parameters: {
       type: 'object',

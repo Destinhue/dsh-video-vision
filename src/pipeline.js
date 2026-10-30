@@ -24,6 +24,7 @@ import { composeSheet } from './sheet.js';
 import { encodePng } from './png.js';
 import { analyzeAudio, extractSubtitles, groupCues, timecode } from './timeline.js';
 import { formatManifest } from './manifest.js';
+import { asrAvailable, asrCues } from './asr.js';
 import { isBilibili, bilibiliFile, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
 
 export { DETAIL_PRESETS };
@@ -159,6 +160,7 @@ export async function runStoryboard(opts) {
 
   // ---- 3. subtitles (container metadata, no decode)
   let transcript = analysis.transcript ?? { cues: [], segments: [], source: null };
+  let asrNote = null;
   if (opts.transcript !== false && probe.hasSubtitle && !analysis.transcript) {
     try {
       const subs = await extractSubtitles({ input, ffmpegPath, signal: opts.signal, run, probe });
@@ -170,6 +172,26 @@ export async function runStoryboard(opts) {
       }
     } catch { /* a broken subtitle track must not fail the tool */ }
     analysis.transcript = transcript;
+  }
+  // ---- 3b. speech to text, only when nobody else already said it
+  //
+  // A subtitle track is a transcript someone else paid for: cheaper and far more
+  // accurate than any recogniser. ASR is the fallback for the file that has
+  // audio and no captions, and it is off unless `DSH_ASR_CMD` names an engine
+  // (see src/asr.js for why the engine is not bundled).
+  if (opts.transcript !== false && opts.asr !== false
+    && !(transcript.cues && transcript.cues.length)
+    && probe.hasAudio && asrAvailable()) {
+    try {
+      const heard = await asrCues({ ffmpegPath, input, start, end: start + window, signal: opts.signal });
+      if (heard.cues.length) {
+        transcript = { cues: heard.cues, segments: groupCues(heard.cues), source: 'asr' };
+        analysis.transcript = transcript;
+      }
+      if (heard.reason) asrNote = heard.reason;
+    } catch (error) {
+      asrNote = String(error?.message ?? error);
+    }
   }
   mark('subtitle');
 
@@ -187,6 +209,17 @@ export async function runStoryboard(opts) {
       const mid = (c.t0 + c.t1) / 2;
       c.frameIndex = Math.max(0, Math.min(scan.frames - 1, Math.round((mid - startT) * scan.effFps)));
       c.frameT = +(startT + (c.frameIndex + 0.5) / scan.effFps).toFixed(3);
+    }
+  }
+  // Cell spans come out of the planner on the window's clock (0 = the first
+  // frame we scanned). Everything downstream — the manifest, the cut counts and
+  // the dialogue quotes — speaks the file's clock, so shift once here rather
+  // than remembering to add `start` in three places.
+  const shift = scan.start ?? 0;
+  if (shift) {
+    for (const c of plan.cells) {
+      c.t0 = +(c.t0 + shift).toFixed(3);
+      c.t1 = +(c.t1 + shift).toFixed(3);
     }
   }
   if (plan.cells.length === 0) {
@@ -207,6 +240,7 @@ export async function runStoryboard(opts) {
     name: source.meta ? sourceTitle(source.meta) : basename(input),
     probe: { ...probe, width: upright.width, height: upright.height },
     scan, plan, audio, transcript,
+    asrNote: asrNote ?? undefined,
   };
 
   // ---- 5. textOnly: skip every pixel, keep every timestamp
