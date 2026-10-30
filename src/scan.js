@@ -19,7 +19,7 @@
  * to luma-only differencing, so the difference is computed in (Y, Cr, Cb).
  */
 
-import { spawnStream } from './media.js';
+import { spawnStream, netInputArgs } from './media.js';
 
 export const SCAN_DEFAULTS = {
   maxWidth: 96,
@@ -134,7 +134,7 @@ export async function scanShots(opts) {
 
   const args = ['-hide_banner', '-nostdin', '-v', 'error'];
   if (start > 0) args.push('-ss', start.toFixed(3));
-  args.push('-i', input, '-t', duration.toFixed(3));
+  args.push(...netInputArgs(input), '-i', input, '-t', duration.toFixed(3));
   args.push('-an', '-sn', '-dn');
   // Interlaced sources are combed: the two fields hold different moments, so a
   // block grid sees them alternate. Deinterlacing costs almost nothing at this

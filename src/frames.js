@@ -18,6 +18,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { netInputArgs } from './media.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -62,7 +63,7 @@ function buildArgs({ input, jobs, cellW, cellH, scaleFlags }) {
   const args = ['-hide_banner', '-nostdin', '-v', 'error'];
   for (const job of jobs) {
     args.push('-ss', job.seek.toFixed(3));
-    args.push('-i', input);
+    args.push(...netInputArgs(input), '-i', input);
   }
   for (let i = 0; i < jobs.length; i++) {
     args.push('-map', `${i}:v:0`);
@@ -179,7 +180,7 @@ export async function extractFrame(p) {
   const bytes = width * height * 3;
   const args = [
     '-hide_banner', '-nostdin', '-v', 'error',
-    '-ss', Math.max(0, t).toFixed(3), '-i', input,
+    '-ss', Math.max(0, t).toFixed(3), ...netInputArgs(input), '-i', input,
     '-frames:v', '1', '-an', '-sn', '-dn',
     '-vf', `scale=${width}:${height}:flags=${FRAME_DEFAULTS.scaleFlags},format=rgb24`,
     '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-y', out,

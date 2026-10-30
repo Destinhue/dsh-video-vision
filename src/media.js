@@ -416,8 +416,31 @@ function finalize(info) {
  * answers in 142 ms, and every line the parser wants is already on stderr by
  * the time the input has been opened.
  */
+const NET_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+  + '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/** is this input a URL rather than a path on disk? */
+export function isNetworkInput(input) {
+  return /^https?:\/\//i.test(String(input || ''));
+}
+
+/**
+ * ffmpeg/ffprobe arguments that make a remote input readable.
+ *
+ * The Bilibili CDN answers 403 to a plain GET: it wants a Referer and a
+ * desktop User-Agent, and both have to be one `-headers` argument with CRLF
+ * separators (a bare newline is treated as a separate option and fails).
+ */
+export function netInputArgs(input, env = process.env) {
+  if (!isNetworkInput(input)) return [];
+  const referer = env.DSH_HTTP_REFERER || 'https://www.bilibili.com';
+  const ua = env.DSH_HTTP_UA || NET_UA;
+  return ['-headers', `Referer: ${referer}\r\nUser-Agent: ${ua}\r\n`];
+}
+
 export function bannerProbeArgs(input) {
-  return ['-hide_banner', '-nostdin', '-i', input, '-t', '0', '-f', 'null', '-'];
+  return ['-hide_banner', '-nostdin', ...netInputArgs(input), '-i', input,
+    '-t', '0', '-f', 'null', '-'];
 }
 
 /**
@@ -459,7 +482,8 @@ export async function probeVideo(input, opts = {}) {
   if (ffprobePath) {
     try {
       const r = await run(ffprobePath, [
-        '-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', input,
+        '-v', 'error', ...netInputArgs(input),
+        '-print_format', 'json', '-show_format', '-show_streams', input,
       ], { maxBuffer: 16 * 1024 * 1024, timeoutMs: 60_000 });
       const parsed = JSON.parse(r.stdout.toString('utf8'));
       return finalizeFromProbe(parsed, input);

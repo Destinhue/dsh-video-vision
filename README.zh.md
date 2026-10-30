@@ -202,6 +202,17 @@ OCR 用 Windows 自带引擎（无需下载、无需模型）；其它平台会�
 
 ---
 
+### 不用先下载就能读 B 站
+
+CDN 给的是一个带签名的 mp4 直链，ffmpeg 可以直接边读边取。`video_probe` 一直都这样；
+从 1.3.2 起，`video_storyboard`、`video_zoom`、`video_read` 也能直接读链接——默认只对
+`DSH_BILIBILI_STREAM_MAX` 秒（300）以内的短片这么做，更长的片子还是下载一次再缓存
+（两小时的课在线看两遍，流量比存下来还贵）。用 `DSH_BILIBILI_STREAM=1` 强制在线、
+`=0` 强制下载。
+
+实测一条 57 秒的片子：在线出分镜 5.7 秒（存下来后 1.9 秒），`video_read` 8.3 秒、
+14 屏 2 161 字，磁盘上什么都没写。
+
 ### 语音转文字（自带引擎时）
 
 如果把 `DSH_ASR_CMD` 指向一个你信得过的引擎，`video_storyboard` 和 `video_read`

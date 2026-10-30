@@ -27,8 +27,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ocrBackend, ocrDirectory } from './ocr.js';
-import { isBilibili, bilibiliFile } from './bili.js';
-import { probeVideo } from './media.js';
+import { isBilibili, bilibiliFile, bilibiliStream, biliStreamMode, biliStreamLimit, bilibiliView } from './bili.js';
+import { probeVideo, netInputArgs } from './media.js';
 
 export const READ_DEFAULTS = {
   gridWidth: 96,
@@ -365,7 +365,7 @@ function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, dense 
   const args = ['-hide_banner', '-nostdin'];
   if (!dense) args.push('-skip_frame', 'nokey');
   if (start) args.push('-ss', String(start));
-  args.push('-i', input);
+  args.push(...netInputArgs(input), '-i', input);
   if (end) args.push('-t', String(end - start));
   const pre = dense ? `fps=1/${dense},` : '';
   args.push('-vf', `${pre}scale=${w}:${h}:flags=fast_bilinear,showinfo,format=rgb24`,
@@ -414,9 +414,26 @@ export async function runRead(opts) {
   let source = input;
   let sourceTitle = null;
   if (isBilibili(input)) {
-    const file = await bilibiliFile(input, { ffmpegPath, signal, log: opts.log });
-    source = file.path;
-    sourceTitle = file.meta?.title ?? null;
+    let streamed = null;
+    const mode = biliStreamMode();
+    if (mode !== 'off') {
+      try {
+        const view = await bilibiliView(input, { signal });
+        if (mode === 'on' || Number(view.duration || 0) <= biliStreamLimit()) {
+          streamed = await bilibiliStream(view, { signal });
+        }
+      } catch (error) {
+        if (opts.log) opts.log(`stream unavailable (${error.message}); downloading instead`);
+      }
+    }
+    if (streamed) {
+      source = streamed.url;
+      sourceTitle = streamed.meta?.title ?? null;
+    } else {
+      const file = await bilibiliFile(input, { ffmpegPath, signal, log: opts.log });
+      source = file.path;
+      sourceTitle = file.meta?.title ?? null;
+    }
   }
   const crop = opts.crop ?? READ_DEFAULTS.crop;
   const backend = ocrBackend();
@@ -466,7 +483,8 @@ export async function runRead(opts) {
         names.set(i, name);
         await new Promise((resolve, reject) => {
           const child = spawn(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-nostdin',
-            '-ss', t.toFixed(3), '-i', source, '-frames:v', '1', '-vf', cropFilter,
+            '-ss', t.toFixed(3), ...netInputArgs(source), '-i', source,
+            '-frames:v', '1', '-vf', cropFilter,
             '-y', join(dir, `${name}.png`)], { stdio: 'ignore', signal });
           child.on('error', reject);
           child.on('close', resolve);

@@ -13,6 +13,8 @@
  * drawn as a band under the sheet and queried by time without resampling.
  */
 
+import { netInputArgs } from './media.js';
+
 export const AUDIO_DEFAULTS = {
   sampleRate: 8000,
   binMs: 40,
@@ -77,7 +79,7 @@ export async function analyzeAudio({ input, ffmpegPath, signal, duration = 0, ru
   const binSamples = Math.round((sr * AUDIO_DEFAULTS.binMs) / 1000);
   const args = [
     '-hide_banner', '-nostdin', '-v', 'error',
-    '-i', input, '-vn', '-sn', '-dn',
+    ...netInputArgs(input), '-i', input, '-vn', '-sn', '-dn',
     '-ac', '1', '-ar', String(sr), '-f', 's16le', '-acodec', 'pcm_s16le', '-',
   ];
   const res = await run(ffmpegPath, args, { signal, maxBuffer: 512 * 1024 * 1024 });
@@ -288,7 +290,7 @@ export async function extractSubtitles({ input, ffmpegPath, signal, run, probe }
   if (!hasSub) return { cues: [], source: null };
   const args = [
     '-hide_banner', '-nostdin', '-v', 'error',
-    '-i', input, '-map', '0:s:0', '-f', 'srt', '-',
+    ...netInputArgs(input), '-i', input, '-map', '0:s:0', '-f', 'srt', '-',
   ];
   const res = await run(ffmpegPath, args, { signal, maxBuffer: 64 * 1024 * 1024 });
   if (res.code !== 0) return { cues: [], source: null, error: (res.stderr || '').slice(-160) };

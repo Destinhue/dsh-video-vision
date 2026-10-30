@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.3.2
+
+### Added
+
+- **A B站 link no longer has to be downloaded.** The CDN hands out a signed mp4
+  link, so ffmpeg reads it in place: `video_probe` never touched the stream,
+  and now `video_storyboard`, `video_zoom` and `video_read` can work on the URL
+  too. `DSH_BILIBILI_STREAM=1` forces it, `=0` forces a download, and the
+  default is `auto` — clips up to `DSH_BILIBILI_STREAM_MAX` seconds (300) are
+  read from the network, longer ones are downloaded once and cached, because
+  streaming a two-hour lecture twice costs more than keeping it.
+- Every ffmpeg/ffprobe call site now passes the Referer and User-Agent the CDN
+  requires, as one `-headers` argument with CRLF separators (a bare newline is
+  parsed as a separate option and the CDN answers 403).
+- `DSH_HTTP_REFERER` / `DSH_HTTP_UA` override those headers for other hosts.
+
+### Measured
+
+| | |
+| --- | --- |
+| `video_probe`, link, no download | 251 ms |
+| `video_storyboard`, 57 s link, streamed | 5.7 s (1.9 s when cached locally) |
+| `video_read`, 57 s link, streamed | 8.3 s (2 161 characters out of 14 screens) |
+| 20 s of video decoded from the CDN | 1.6 s |
+| one frame seeked at 40 s over HTTP | 0.5 s |
+
+### Tests
+
+`190 → 192` (stream mode parsing, header plumbing).
+
 ## 1.3.1
 
 ### Added — the transcript, and what is owed to it

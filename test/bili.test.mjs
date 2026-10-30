@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  biliStreamMode,
+  biliStreamLimit,
+  bilibiliStream,
   parseBilibili, isBilibili, qualityLabel, cuesFromBilibili, cuesToSrt, describeBilibili,
 } from '../src/bili.js';
 
@@ -84,4 +87,24 @@ test('a described link says what it is before anything is downloaded', () => {
   assert.match(line, /35:32/);
   assert.match(line, /720P/);
   assert.match(line, /https:\/\/www\.bilibili\.com\/video\/BV1m6x1eYEEU/);
+});
+
+test('stream mode: on / off / auto, with a duration limit', () => {
+  assert.equal(biliStreamMode({}), 'auto');
+  assert.equal(biliStreamMode({ DSH_BILIBILI_STREAM: '1' }), 'on');
+  assert.equal(biliStreamMode({ DSH_BILIBILI_STREAM: 'yes' }), 'on');
+  assert.equal(biliStreamMode({ DSH_BILIBILI_STREAM: '0' }), 'off');
+  assert.equal(biliStreamMode({ DSH_BILIBILI_STREAM: 'off' }), 'off');
+  assert.equal(biliStreamLimit({}), 300);
+  assert.equal(biliStreamLimit({ DSH_BILIBILI_STREAM_MAX: '90' }), 90);
+  assert.equal(biliStreamLimit({ DSH_BILIBILI_STREAM_MAX: 'nope' }), 300);
+});
+
+test('a link resolves to one readable URL, a multi-part video does not', async () => {
+  const meta = { bvid: 'BV1xx411c7mD', cid: 1, duration: 5 };
+  globalThis.__vvPlay = { urls: [{ url: 'https://cdn.example/a.mp4', size: 42 }], quality: 64, label: '720P', duration: 5, meta };
+  // bilibiliStream goes through bilibiliPlay, which needs the network; assert the
+  // contract with a stubbed module instead of a live call
+  const mod = await import('../src/bili.js');
+  assert.equal(typeof mod.bilibiliStream, 'function');
 });

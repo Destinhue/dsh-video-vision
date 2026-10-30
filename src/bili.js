@@ -450,6 +450,56 @@ function safeName(text) {
  * size so a half-finished download from a killed run is retried rather than
  * decoded.
  */
+/**
+ * Resolve a Bilibili link to a URL ffmpeg can read directly.
+ *
+ * The CDN hands out a signed mp4 link (durl, `fnval=1`), so nothing has to be
+ * written to disk: ffmpeg fetches ranges as it seeks. Two caveats make this an
+ * opt-in: the link expires (hours, not days) and a video split into several
+ * parts still has to be downloaded and concatenated.
+ */
+/**
+ * How to treat a Bilibili link: `'on'` never downloads, `'off'` always
+ * downloads, `'auto'` (the default) streams short clips and downloads long
+ * ones — a two-hour lecture streamed twice is two gigabytes of traffic, while
+ * a one-minute clip costs nothing to read in place.
+ *
+ *   DSH_BILIBILI_STREAM=1|0        force on / off
+ *   DSH_BILIBILI_STREAM_MAX=300    seconds under which 'auto' streams
+ */
+export function biliStreamMode(env = process.env) {
+  const v = String(env.DSH_BILIBILI_STREAM || '').toLowerCase();
+  if (v === '1' || v === 'true' || v === 'yes' || v === 'on') return 'on';
+  if (v === '0' || v === 'false' || v === 'no' || v === 'off') return 'off';
+  return 'auto';
+}
+
+export function biliStreamLimit(env = process.env) {
+  const n = Number(env.DSH_BILIBILI_STREAM_MAX);
+  return Number.isFinite(n) && n > 0 ? n : 300;
+}
+
+/** kept for callers that only want a yes/no */
+export function biliStreamEnabled(env = process.env) {
+  return biliStreamMode(env) !== 'off';
+}
+
+export async function bilibiliStream(input, { cookie = null, signal = null, maxHeight = 1080 } = {}) {
+  const play = await bilibiliPlay(input, { cookie, signal, maxHeight });
+  if (play.urls.length !== 1) {
+    throw new Error(`this video is served as ${play.urls.length} parts; streaming needs a single file`);
+  }
+  const seg = play.urls[0];
+  return {
+    url: seg.url,
+    size: seg.size || play.size,
+    quality: play.quality,
+    label: play.label,
+    duration: play.duration,
+    meta: play.meta,
+  };
+}
+
 export async function bilibiliFile(input, {
   cookie = null,
   signal = null,

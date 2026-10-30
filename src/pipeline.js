@@ -26,9 +26,10 @@ import { analyzeAudio, extractSubtitles, groupCues, snapCellsToSpeech, timecode 
 import { formatManifest } from './manifest.js';
 import { loadTranscriptFile } from './transcript.js';
 import { asrAvailable, asrCues, loadAsrSettings } from './asr.js';
-import { isBilibili, bilibiliFile, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
+import { isBilibili, bilibiliFile, bilibiliStream, biliStreamMode, biliStreamLimit, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
 
 export { DETAIL_PRESETS };
+export { biliStreamMode, biliStreamLimit };
 
 const MAX_CELLS_HARD = 24;
 
@@ -38,9 +39,24 @@ const MAX_CELLS_HARD = 24;
  * is should cost one HTTP request, not a hundred megabytes.
  */
 async function resolveSource(rawInput, { ffmpegPath, signal, log } = {}) {
-  if (!isBilibili(rawInput)) return { path: rawInput, meta: null, download: null };
+  if (!isBilibili(rawInput)) return { path: rawInput, meta: null, download: null, stream: false };
+  const mode = biliStreamMode();
+  if (mode !== 'off') {
+    try {
+      const view = await bilibiliView(rawInput, { signal });
+      const short = Number(view.duration || 0) <= biliStreamLimit();
+      if (mode === 'on' || short) {
+        const s = await bilibiliStream(view, { signal, maxHeight: biliMaxHeight() });
+        if (log) log(`streaming ${s.label} · ${Math.round((s.size || 0) / 1024)} KB · no download`);
+        return { path: s.url, meta: s.meta, download: null, stream: true };
+      }
+      if (log) log(`long video (${Math.round(Number(view.duration || 0))} s) — downloading so later calls are local`);
+    } catch (error) {
+      if (log) log(`stream unavailable (${error.message}); downloading instead`);
+    }
+  }
   const file = await bilibiliFile(rawInput, { ffmpegPath, signal, log, maxHeight: biliMaxHeight() });
-  return { path: file.path, meta: file.meta, download: file };
+  return { path: file.path, meta: file.meta, download: file, stream: false };
 }
 
 /** Highest quality worth downloading; 1080p by default, override with the env. */

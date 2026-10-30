@@ -28,10 +28,11 @@ const ASR_NOTE = `
 
 const BILI_NOTE = [
   '',
-  'B站 links work directly: the video is fetched at the best quality this machine can reach without an account',
-  '(720P by default) and cached under $DSH_HOME/cache/video-vision, so a second question about the same video',
-  'costs nothing. Set DSH_BILIBILI_COOKIE (or write the cookie to $DSH_HOME/bilibili-cookies.txt) to reach 1080P,',
-  'and DSH_BILIBILI_MAX_HEIGHT to cap what is downloaded.',
+  'B站 links work directly, and short clips are read from the CDN without downloading at all: the link is',
+  'opened in place (720P by default, DSH_BILIBILI_COOKIE for 1080P, DSH_BILIBILI_MAX_HEIGHT to cap it).',
+  'Videos longer than DSH_BILIBILI_STREAM_MAX seconds (default 300) are downloaded once and cached under',
+  '$DSH_HOME/cache/video-vision instead, because streaming a two-hour lecture twice costs more than keeping it.',
+  'Force either way with DSH_BILIBILI_STREAM=1 (never download) or =0 (always download).',
 ].join('\n');
 
 export function probeSpec() {

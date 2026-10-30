@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, linkSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import {
+  existsSync, linkSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   run,
+  netInputArgs,
   findBinary,
   findFfmpeg,
   findFfprobe,
@@ -259,4 +261,18 @@ test('run resolves a non-zero exit instead of rejecting', async () => {
 
 test('run rejects when the binary cannot be spawned', async () => {
   await assert.rejects(run('definitely-not-a-real-binary-xyz', []));
+});
+
+test('remote inputs carry the headers the CDN insists on', () => {
+  const local = netInputArgs('C:/films/a.mp4');
+  assert.deepEqual(local, []);
+  const args = netInputArgs('https://www.bilibili.com/video/BV1xx411c7mD/');
+  assert.equal(args[0], '-headers');
+  assert.match(args[1], /^Referer: https:\/\/www\.bilibili\.com\r\nUser-Agent: Mozilla\//);
+  assert.ok(args[1].endsWith('\r\n'));
+  const custom = netInputArgs('https://cdn.example/v.mp4', {
+    DSH_HTTP_REFERER: 'https://example.com',
+    DSH_HTTP_UA: 'probe/1.0',
+  });
+  assert.equal(custom[1], 'Referer: https://example.com\r\nUser-Agent: probe/1.0\r\n');
 });

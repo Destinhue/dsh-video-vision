@@ -28,7 +28,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { run } from './media.js';
+import { run, netInputArgs } from './media.js';
 import { parseSubtitleText } from './timeline.js';
 
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
@@ -299,7 +299,8 @@ export async function asrCues(opts) {
   const wav = join(tmp, 'audio.wav');
   const out = join(tmp, 'asr.out');
   try {
-    const args = ['-hide_banner', '-nostdin', '-loglevel', 'error', '-ss', String(start), '-i', input];
+    const args = ['-hide_banner', '-nostdin', '-loglevel', 'error',
+      '-ss', String(start), ...netInputArgs(input), '-i', input];
     if (end != null) args.push('-t', String(Math.max(0.2, end - start)));
     args.push('-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', '-y', wav);
     const res = await run(ffmpegPath, args, { signal, timeoutMs: 30 * 60 * 1000 });

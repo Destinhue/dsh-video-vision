@@ -253,6 +253,17 @@ elsewhere the tool says so and you fall back to `video_storyboard`.
 
 ---
 
+### Reading from B站 without downloading
+
+The CDN link is a signed mp4, so ffmpeg reads it in place. `video_probe` always did;
+as of 1.3.2 `video_storyboard`, `video_zoom` and `video_read` do too, for clips up to
+`DSH_BILIBILI_STREAM_MAX` seconds (default 300). Longer videos are downloaded once and
+cached — a two-hour lecture streamed twice is more traffic than keeping it. Force either
+behaviour with `DSH_BILIBILI_STREAM=1` (never download) or `=0` (always download).
+
+Measured on a 57-second clip: storyboard 5.7 s streamed vs 1.9 s cached, `video_read`
+8.3 s and 2 161 characters — and nothing written to disk.
+
 ### Speech, when you have an engine
 
 `video_storyboard` and `video_read` can quote what is being **said** as well as
