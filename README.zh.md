@@ -133,7 +133,7 @@ ffmpeg 4.x 以上都能用：抽帧前会先问一次二进制自己的版本，
 node bin/selfcheck.mjs --smoke          # 18 项检查，自己生成素材
 node bin/selfcheck.mjs --smoke --host   # 33 项：用已安装的 Harness 自己的 schema 校验四个工具
                                         # 引擎校验三个工具（29 项）
-node --test test/                       # 229 个单元测试，不联网，临时目录隔离
+node --test test/                       # 237 个单元测试，不联网，临时目录隔离
 ```
 
 `--host` 跑的是 `ctx.tools.register` 真正执行的断言，然后逐个工具真调用一次，
@@ -175,6 +175,18 @@ transcript: subtitle-track · 18 segments
 | `cellRange` | 配合 `textOnly`，列出第 a 到第 b 格 |
 
 `video_zoom` 支持同样的窗口参数，外加 `cells`（1-9）与 `at`；只有 1 格时返回原分辨率单帧。
+
+### 哪些格子需要放大
+
+分镜拼得密，每格就小，一行字幕或一行代码会糊成灰带，而那一格整体看着仍然是好画面。索引会直接说，不用你猜：
+
+```
+cols: cell · pos · span · (cuts) · frame@ · zoom
+zoom: 3/22 格含有比这张图更细的细节（6.4 倍），第 4、9、17 格已标记，其余按原样可读
+4  r2c1 00:12.00-00:28.00 @00:19.80 zoom
+```
+
+测量是把每格按格大小的两倍解一次再比对，所以读图成本不变、也不多花图像 token。空帧、纯色卡片、黑边这类没有细节的格子不会被标记；如果每一格都太小，索引只说一次并建议用 `detail:"low"` 换更大的格子。`DSH_VIDEO_ZOOM_MARKERS=0` 可以关掉。
 
 ### 读一堂课
 

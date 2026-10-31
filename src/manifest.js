@@ -14,6 +14,7 @@
  */
 
 import { timecode, timecodeShort } from './timeline.js';
+import { zoomNote } from './detail.js';
 
 const ROW = (i) => i.toFixed(0);
 
@@ -60,7 +61,9 @@ export function formatManifest(p) {
     const start = scan.start ?? 0;
     const span = plan.duration > 0 ? plan.duration : Math.max(0, dur - start);
     out.push(`sheet ${pages.length > 1 ? `1/${pages.length}` : '1'} · ${g.cols}x${g.rows} grid · ${g.width}x${g.height} · ${cells.length} cells · window ${timecode(start)}-${timecode(start + span)}`);
-    out.push(`cols: cell · pos · span · (cuts) · frame@`);
+    out.push(`cols: cell · pos · span · (cuts) · frame@${p.zoom?.list?.length ? ' · zoom' : ''}`);
+    const note = p.zoom ? zoomNote(p.zoom) : null;
+    if (note) out.push(note);
   }
   if (scan.degraded) {
     out.push(`note: ${DEGRADED[scan.degraded] ?? scan.degraded}`);
@@ -77,7 +80,8 @@ export function formatManifest(p) {
       : '';
     const dup = c.dupOf ? ` =cell ${c.dupOf}` : '';
     // `pos` is empty when there is no sheet; do not leave a doubled separator.
-    let line = `${c.index}${pos ? ` ${pos}` : ''} ${timecode(c.t0)}-${timecode(c.t1)}${cutNote} @${timecode(c.frameT)}${dup}`;
+    const needsZoom = p.zoom && !p.zoom.all && p.zoom.list.includes(c.index);
+    let line = `${c.index}${pos ? ` ${pos}` : ''} ${timecode(c.t0)}-${timecode(c.t1)}${cutNote} @${timecode(c.frameT)}${dup}${needsZoom ? ' zoom' : ''}`;
     const quote = transcript ? transcriptFor(transcript, c.t0, c.t1, limits.maxCellChars) : null;
     if (quote) line += ` · "${quote}"`;
     if (chars + line.length > limits.maxChars) {

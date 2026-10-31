@@ -158,7 +158,7 @@ Verify a machine end to end (no video needed — it builds one):
 node bin/selfcheck.mjs --smoke          # 18 checks, builds its own clip
 node bin/selfcheck.mjs --smoke --host   # 33 checks: validates all four tools against the
                                         # installed Harness's schema engine
-node --test test/                       # 229 tests, no network, hermetic temp dirs
+node --test test/                       # 237 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -202,6 +202,24 @@ top-left; the number burned into each cell is the cell index.
 
 `video_zoom` takes the same window arguments plus `cells` (1–9) and `at`; a
 single cell is returned at full resolution.
+
+### Which cells need a closer look
+
+A dense sheet is small per cell, so a subtitle line or a line of code can shrink
+into a smear while the cell still looks like a perfectly good picture. The index
+tells you instead of leaving you to guess:
+
+```
+cols: cell · pos · span · (cuts) · frame@ · zoom
+zoom: 3/22 cells carry detail finer than the sheet can show at 6.4x — cells 4, 9, 17 are marked, the rest read fine as they are
+4  r2c1 00:12.00-00:28.00 @00:19.80 zoom
+```
+
+Each cell is decoded at twice the cell size for the measurement, so this costs
+nothing extra to read and adds no image tokens. Cells with no fine detail — a
+black frame, a flat title card, letterbox bars — are never marked; when every
+cell is too small the line says so once and suggests `detail:"low"` for bigger
+cells. `DSH_VIDEO_ZOOM_MARKERS=0` turns it off.
 
 ### Reading a lecture
 

@@ -20,6 +20,7 @@ import { run, probeVideo, findFfmpeg, findFfprobe, displayAspect, uprightSize } 
 import { scanShots } from './scan.js';
 import { planCells, planGrid, cellReadability, sheetPixelsFor, DETAIL_PRESETS, suggestDetail, bestFrameIndex } from './layout.js';
 import { extractCells, extractFrame } from './frames.js';
+import { cellScale, zoomMarkers, ZOOM_MIN_SCALE } from './detail.js';
 import { composeSheet } from './sheet.js';
 import { encodePng } from './png.js';
 import { analyzeAudio, extractSubtitles, groupCues, snapCellsToSpeech, timecode } from './timeline.js';
@@ -304,9 +305,16 @@ export async function runStoryboard(opts) {
   }
 
   // ---- 6. decode the chosen frames
+  // A cell this small cannot hold a subtitle, so this is the only case where
+  // measuring "what did the shrink eat" can change an answer — and therefore the
+  // only case where it costs anything: a readable sheet decodes exactly as before.
+  const scale = cellScale(upright.height, grid.cellH);
+  const wantZoom = (opts.zoomMarkers ?? process.env.DSH_VIDEO_ZOOM_MARKERS !== '0') && scale >= ZOOM_MIN_SCALE;
   const extraction = await extractCells({
     input, ffmpegPath, cells: plan.cells,
     cellW: grid.cellW, cellH: grid.cellH, signal: opts.signal,
+    oversample: wantZoom ? 2 : 1,
+    measure: wantZoom,
   });
   mark('decode');
 
@@ -331,9 +339,14 @@ export async function runStoryboard(opts) {
   const png = encodePng(sheetPixels.data, sheetPixels.width, sheetPixels.height);
   mark('draw');
 
+  // Which cells are finer than the sheet can show: measured while decoding, so
+  // the client can zoom three cells instead of re-reading twenty-two.
+  const zoom = zoomMarkers(extraction.metrics, scale);
+
   const manifest = formatManifest({
     ...base,
     sheet: { pages: [{ grid }] },
+    zoom,
     only: only ? listed.map((c) => c.index) : null,
   });
 
@@ -343,7 +356,7 @@ export async function runStoryboard(opts) {
     sheet: { grid, width: sheetPixels.width, height: sheetPixels.height, bytes: png.length },
     manifest: manifest.text,
     truncated: manifest.truncated,
-    scan, plan, probe, audio, transcript, extraction, fromCache,
+    scan, plan, probe, audio, transcript, extraction, fromCache, zoom,
     readability: cellReadability(grid.cellW, grid.cellH, upright.height),
     timings: { ...t, total: Date.now() - started },
     visionTokens: estimateVisionTokens(sheetPixels.width, sheetPixels.height),

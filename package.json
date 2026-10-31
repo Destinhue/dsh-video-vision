@@ -1,6 +1,6 @@
 {
   "name": "dsh-video-vision",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Look at a video, not a summary of it: one addressable storyboard grid per view, tuned for deepseek-v4.1-flash vision — adaptive cell resolution, content-aware layout, frame-level scene detection and a token-tight index.",
   "keywords": [
     "dsh",

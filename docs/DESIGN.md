@@ -465,3 +465,38 @@ the material at hand: a talking head is the same picture whether or not somebody
 speaking, so the extra cells are near-duplicates. Slides earn cells from *picture*
 change (board mode, §9), narration earns its own tool (`video_read`), and the two
 meet in the manifest, where each cell quotes the lines that were spoken over it.
+
+## 12. Telling the client which cells are too small
+
+A dense sheet is the whole point: twenty-two moments for the price of four. The
+bill comes due on the cell — a subtitle line 34 px tall in a 720P source is
+10.6 px in a 400x225 cell, and a line of prose on a 1440P slide is 4 px, which is
+not text any more, it is texture.
+
+The client cannot tell by looking. It sees a perfectly good picture of a slide
+and does not know that the equation in the middle is a grey bar. Asking it to
+"read the sheet" produces confident nonsense; asking it to re-read the whole
+sheet at a bigger size costs a second image for one cell's worth of information.
+
+So the sheet comes with an opinion. Each cell is decoded at twice the cell size
+anyway (the measurement rides on a decode that was already happening), the ink in
+it is measured at that finer scale, and the shrink factor of the sheet turns that
+into a sentence about the cell: at 6.4x, anything under about 77 source pixels is
+gone from this sheet.
+
+Three decisions worth recording:
+
+- **The rule is about the sheet, not about the content.** "This cell is shrunk
+  6.4x" is arithmetic. "This cell contains text" would be a guess, and a guess
+  that has to be right per cell or the marker becomes noise. The ink measure only
+  gates out cells where zooming cannot add anything (black frames, flat cards).
+- **Images are priced by area, so the marker is free.** The measurement adds no
+  tokens and no image; it adds one line to the text index, and only when some
+  cell is actually below the line.
+- **When every cell needs a zoom, say it once.** Twenty-two "zoom" tags is
+  noise; one line that says "every cell is shrunk 7x, text under 84px is gone —
+  zoom the ones you need, or re-call with detail low" is an instruction.
+
+Measured: 5 cells of a 1440P lecture at 7.02x, all flagged; 28 cells of a 720P
+music video at 3.87x, 27 flagged (the one of pure sky is not); the 720P corpus at
+3.2x flags nothing, and the decode path there is byte-for-byte the old one.

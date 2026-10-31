@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.3.4
+
+### Added
+
+- **The index now says which cells are worth zooming.** A dense sheet is small
+  per cell, so a subtitle line or a line of code can vanish into a smear while
+  the cell still looks like a perfectly good picture. Each cell is decoded at
+  twice the cell size for the measurement only, the two scales are compared, and
+  the index gets a `zoom:` line listing the cells that carry detail finer than a
+  sheet pixel — those cell lines end in the word `zoom`.
+  When every cell is in that state the line says so once instead of listing
+  twenty-two numbers, and suggests `detail:"low"` for bigger cells instead.
+  Cells with no fine detail (black frame, flat card, letterbox) are never marked.
+- `DSH_VIDEO_ZOOM_MARKERS=0` turns the measurement off (it is skipped on
+  readable sheets anyway, where it cannot change an answer).
+
+### Measured
+
+- 2560×1440 lecture, 150 s window: cells are shrunk 7.02×, all 5 flagged,
+  `text under ~84px in the source is gone`.
+- 720P Bilibili clip, 28 cells at 3.87×: 27 of 28 flagged — the one cell of pure
+  sky is not.
+- 720P corpus clips at 3.2×: nothing flagged, and the decode path is untouched
+  (67 cells · 3 648 vision tokens · cut F1 0.872 · coverage 0.963 unchanged).
+- Cost of the measurement where it runs: 2 286 ms vs 2 123 ms decode on the same
+  window (within run-to-run noise — the integral-image ink measure is 4 lookups
+  per pixel, not 25).
+
+### Tests
+
+237 (was 229): synthetic ink/stroke cases, the marker thresholds, the note
+wording for one/many/all cells, and the manifest marker itself.
+
 ## 1.3.3
 
 ### Fixed — four things a reader hit on real files

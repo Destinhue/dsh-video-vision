@@ -19,6 +19,7 @@
 
 import { spawn } from 'node:child_process';
 import { netInputArgs } from './media.js';
+import { downsample2, inkFraction } from './detail.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,6 +28,9 @@ export const FRAME_DEFAULTS = {
   batch: 6,
   concurrency: 3,
   scaleFlags: 'lanczos+accurate_rnd',
+  /** Decode each cell at this multiple of the cell size, to measure what the
+   *  sheet will lose. 1 disables the measurement. */
+  oversample: 2,
   /** Retries for a seek that lands past the end of the stream. */
   retries: 1,
 };
@@ -77,6 +81,27 @@ function buildArgs({ input, jobs, cellW, cellH, scaleFlags }) {
   return args;
 }
 
+/** Shrink by the oversample factor (integer factors only, box filter). */
+function downsampleCached(buf, width, height, factor) {
+  let cur = { data: buf, width, height };
+  let f = factor;
+  while (f > 1) {
+    if (cur.width % 2 || cur.height % 2) {
+      // odd sizes: drop the last row/column by re-slicing before the shrink
+      const w = cur.width - (cur.width % 2);
+      const h = cur.height - (cur.height % 2);
+      const cropped = Buffer.allocUnsafe(w * h * 3);
+      for (let y = 0; y < h; y++) {
+        cur.data.copy(cropped, y * w * 3, y * cur.width * 3, y * cur.width * 3 + w * 3);
+      }
+      cur = { data: cropped, width: w, height: h };
+    }
+    cur = downsample2(cur.data, cur.width, cur.height);
+    f >>= 1;
+  }
+  return cur;
+}
+
 /**
  * @param {object} p
  * @param {string} p.input
@@ -93,13 +118,19 @@ export async function extractCells(p) {
     input, ffmpegPath, cells, cellW, cellH,
     signal, batch = FRAME_DEFAULTS.batch, concurrency = FRAME_DEFAULTS.concurrency,
     scaleFlags = FRAME_DEFAULTS.scaleFlags,
+    oversample = FRAME_DEFAULTS.oversample,
+    measure = true,
   } = p;
   const started = Date.now();
   const tmpDir = p.tmpDir ?? (await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-vv-')));
   const created = !p.tmpDir;
-  const bytes = cellW * cellH * 3;
+  const os_ = Math.max(1, Math.round(oversample));
+  const bigW = cellW * os_;
+  const bigH = cellH * os_;
+  const bytes = bigW * bigH * 3;
 
   const frames = new Map();
+  const metrics = new Map();
   const failures = [];
   let processes = 0;
 
@@ -112,14 +143,23 @@ export async function extractCells(p) {
       seek: Math.max(0, c.frameT),
       out: path.join(tmpDir, `c${j}-${Math.random().toString(36).slice(2, 8)}.raw`),
     }));
-    const args = buildArgs({ input, jobs: jobs.map(({ seek, out }) => ({ seek, out })), cellW, cellH, scaleFlags });
+    const args = buildArgs({ input, jobs: jobs.map(({ seek, out }) => ({ seek, out })), cellW: bigW, cellH: bigH, scaleFlags });
     processes += 1;
     const res = await runOnce(ffmpegPath, args, { signal });
     for (const job of jobs) {
       try {
         const buf = await fs.readFile(job.out);
         if (buf.length >= bytes) {
-          frames.set(job.cell.index, { data: Buffer.from(buf.subarray(0, bytes)), width: cellW, height: cellH });
+          const big = Buffer.from(buf.subarray(0, bytes));
+          if (os_ > 1) {
+            if (measure) {
+              metrics.set(job.cell.index, { ink: inkFraction(big, bigW, bigH) });
+            }
+            const small = downsampleCached(big, bigW, bigH, os_);
+            frames.set(job.cell.index, { data: small.data, width: small.width, height: small.height });
+          } else {
+            frames.set(job.cell.index, { data: big, width: cellW, height: cellH });
+          }
         } else {
           failures.push({ index: job.cell.index, t: job.cell.frameT, reason: 'short', got: buf.length });
         }
@@ -156,6 +196,7 @@ export async function extractCells(p) {
   const missing = cells.filter((c) => !frames.has(c.index)).map((c) => c.index);
   return {
     frames,
+    metrics,
     stats: {
       requested: cells.length,
       decoded: frames.size,
@@ -163,7 +204,7 @@ export async function extractCells(p) {
       processes,
       batches: groups.length,
       ms: Date.now() - started,
-      cellW, cellH,
+      cellW, cellH, oversample: os_,
     },
   };
 }

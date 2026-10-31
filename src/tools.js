@@ -35,6 +35,15 @@ const BILI_NOTE = [
   'Force either way with DSH_BILIBILI_STREAM=1 (never download) or =0 (always download).',
 ].join('\n');
 
+
+// The index marks cells whose detail is finer than the sheet can show. Saying how
+// to use that here costs nothing per call; saying it in every result costs tokens.
+const ZOOM_NOTE = `
+  Cells: a dense sheet is small per cell, so when a cell cannot hold the text it
+  contains the index says so — a "zoom:" line lists the cells worth a closer look,
+  and those cell lines end in "zoom". Pass their frame@ times to video_zoom (or
+  re-call with detail:"low" for bigger cells) instead of re-reading the whole sheet.`;
+
 export function probeSpec() {
   return {
     name: PROBE_TOOL,
@@ -104,7 +113,7 @@ export function storyboardSpec(ctx) {
       're-read the index of a long film at no image cost, and video_zoom when one window needs real detail.',
       'Re-calling the same window is cached: the text index is free, so paging with `textOnly` + `cellRange`',
       'or asking for one window at a time is the intended way to work through a long file.',
-      ].join('\n') + BILI_NOTE + ASR_NOTE,
+      ].join('\n') + BILI_NOTE + ZOOM_NOTE + ASR_NOTE,
 
     parameters: {
       type: 'object',
