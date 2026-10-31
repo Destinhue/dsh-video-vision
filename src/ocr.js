@@ -74,9 +74,10 @@ export async function ocrDirectory(dir, opts = {}) {
     });
   });
   const text = readFileSync(out, 'utf8');
-  const parts = text.split(/^== (f\d+) ==\r?\n/gm);
+  // any stem: the dense pass writes d#####.png, the keyframe pass f#######.png
+  const parts = text.split(/^== (.+?) ==\r?\n/gm);
   const map = new Map();
-  for (let i = 1; i < parts.length; i += 2) map.set(parts[i], parseSection(parts[i + 1]));
+  for (let i = 1; i < parts.length; i += 2) map.set(parts[i], parseOcrSection(parts[i + 1]));
   // anything the engine skipped stays empty rather than missing
   for (const file of readdirSync(dir)) {
     if (!file.endsWith('.png')) continue;
@@ -91,7 +92,7 @@ export async function ocrDirectory(dir, opts = {}) {
  * the caller can throw away a tab strip without being told which app drew it.
  * @param {string} section one `== stem ==` block
  */
-function parseSection(section) {
+export function parseOcrSection(section) {
   const lines = [];
   let width = 0;
   let height = 0;

@@ -148,13 +148,17 @@ the npm roaming prefix, `/usr/local/bin`, an `imageio-ffmpeg` wheel inside
 `~/.dsh/dsh-runtimes/*/`, then plain `ffmpeg` on `PATH`.
 `$DSH_FFPROBE_PATH` / `$FFPROBE_PATH` do the same for ffprobe.
 
+Any ffmpeg from 4.x up works: the frame reader asks the binary for its version
+once and uses `-fps_mode passthrough` (5.1 and later) or `-vsync 0` (older),
+retrying with the other spelling if the build rejects the first.
+
 Verify a machine end to end (no video needed — it builds one):
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 17 checks, builds its own clip
-node bin/selfcheck.mjs --smoke --host   # 32 checks: validates all four tools against the
+node bin/selfcheck.mjs --smoke          # 18 checks, builds its own clip
+node bin/selfcheck.mjs --smoke --host   # 33 checks: validates all four tools against the
                                         # installed Harness's schema engine
-node --test test/                       # 174 tests, no network, hermetic temp dirs
+node --test test/                       # 229 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -219,16 +223,23 @@ video_read input:"C:\clips\lecture.mp4"
 [17:20–18:54] 例题 3 ．A、B 二人玩如下游戏：初始时有两堆硬币，各 2ⁿ 个…
 ```
 
-It decodes **only keyframes** (`-skip_frame nokey`), clusters them by picture
-change, OCRs the slide area of each cluster once, then merges screens that say
-the same thing. Near-identical slides are collapsed from both ends: OCR noise
+For a long video it decodes **only keyframes** (`-skip_frame nokey`), clusters
+them by picture change, OCRs the slide area of each cluster once, then merges
+screens that say the same thing. Near-identical slides are collapsed from both ends: OCR noise
 makes exact matching useless, so sameness is a character-bigram similarity test.
 
 Lines that appear on most screens are dropped as furniture — that is how the
 recorder's own header goes away without this plugin knowing which recorder it was.
-When a video has almost no readable text (handwriting, a camera pointed at a room)
-it says so instead of quoting strokes: `0 screens · note: this video may be
-handwritten … try video_storyboard`.
+When a video has almost no readable text, it says what it found and names the
+likely causes (handwriting, a phone pointed at a screen, no slides at all) rather
+than asserting one, and points at `video_storyboard` for the pictures.
+
+Short videos are read by sampling instead of by keyframe: under fifteen minutes
+one frame every 1.2 s is decoded once, gated on a 0.4 % picture change, and the
+frames that pass are the exact frames OCR reads — so a fixed layout whose only
+change is the subtitle line yields one screen per line, not one screen for the
+whole clip. Longer videos keep the keyframe path, where decoding, not OCR, is the
+cost.
 
 What gets thrown away is the recorder, not the lecture: a tab strip is a short
 line near the top edge, a status bar is a short line at the bottom, a chat panel

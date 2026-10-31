@@ -97,6 +97,49 @@ export function run(bin, args, { input = null, maxBuffer = 256 * 1024 * 1024, ti
 }
 
 /** Convenience: run and return trimmed stderr (ffmpeg's real log stream). */
+const _fpsModeCache = new Map();
+
+/**
+ * `-vsync 0` was removed in ffmpeg 8 and replaced by `-fps_mode passthrough`,
+ * which ffmpeg < 5.1 does not know. Both mean "do not duplicate or drop frames
+ * to reach a constant rate", which is what a frame-by-frame reader needs: the
+ * timestamps it pairs with the pictures come from `showinfo`, and a duplicated
+ * frame would make them lie.
+ *
+ * The choice is made once per binary by asking it its version; a build that
+ * lies (or a wrapper script) is caught by the caller's retry with the other
+ * spelling.
+ */
+export async function fpsModeArgs(ffmpegPath) {
+  if (_fpsModeCache.has(ffmpegPath)) return _fpsModeCache.get(ffmpegPath);
+  let args = ['-vsync', '0'];
+  try {
+    const { stdout, stderr } = await run(ffmpegPath, ['-hide_banner', '-version']);
+    const m = /ffmpeg version\s+n?(\d+)(?:\.(\d+))?/i.exec(`${stdout}${stderr}`);
+    if (m) {
+      const major = Number(m[1]);
+      const minor = Number(m[2] || 0);
+      // `-fps_mode` arrived in 5.1; `-vsync` was removed in 8.0. Between 5.1 and
+      // 7.x both work, and there we prefer the modern spelling.
+      if (major > 5 || (major === 5 && minor >= 1)) args = ['-fps_mode', 'passthrough'];
+    }
+  } catch {
+    // unknown version: keep the legacy spelling and let the caller retry
+  }
+  _fpsModeCache.set(ffmpegPath, args);
+  return args;
+}
+
+/** the other spelling of the same flag, for a build that rejected the first */
+export function altFpsModeArgs(args) {
+  // Only the two spellings are interchangeable. Anything else is returned as it
+  // came: inventing a flag for an argv we do not recognise would be worse than
+  // failing with the original error.
+  if (args[0] === '-fps_mode') return ['-vsync', '0'];
+  if (args[0] === '-vsync') return ['-fps_mode', 'passthrough'];
+  return args;
+}
+
 export async function runLog(bin, args, opts) {
   const r = await run(bin, args, opts);
   return r.stderr.toString('utf8');

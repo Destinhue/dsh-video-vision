@@ -124,13 +124,16 @@ node_modules 里的 `ffmpeg-static` / `@ffmpeg-installer` → WinGet Links →
 `~/.dsh/dsh-runtimes/*/` 里的 `imageio-ffmpeg` → `PATH` 上的 `ffmpeg`。
 ffprobe 同理（`$DSH_FFPROBE_PATH` / `$FFPROBE_PATH`）。
 
+ffmpeg 4.x 以上都能用：抽帧前会先问一次二进制自己的版本，5.1 及以后用
+`-fps_mode passthrough`，更老的用 `-vsync 0`，万一被拒就换另一种拼法重试一次。
+
 一条命令自检（不需要现成视频，它会自己生成一个）：
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 17 项检查，自己生成素材
-node bin/selfcheck.mjs --smoke --host   # 32 项：用已安装的 Harness 自己的 schema 校验四个工具
+node bin/selfcheck.mjs --smoke          # 18 项检查，自己生成素材
+node bin/selfcheck.mjs --smoke --host   # 33 项：用已安装的 Harness 自己的 schema 校验四个工具
                                         # 引擎校验三个工具（29 项）
-node --test test/                       # 161 个单元测试，不联网，临时目录隔离
+node --test test/                       # 229 个单元测试，不联网，临时目录隔离
 ```
 
 `--host` 跑的是 `ctx.tools.register` 真正执行的断言，然后逐个工具真调用一次，

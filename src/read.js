@@ -23,12 +23,12 @@
  * ffmpeg or an OCR engine.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ocrBackend, ocrDirectory } from './ocr.js';
 import { isBilibili, bilibiliFile, bilibiliStream, biliStreamMode, biliStreamLimit, bilibiliView } from './bili.js';
-import { probeVideo, netInputArgs } from './media.js';
+import { probeVideo, netInputArgs, fpsModeArgs, altFpsModeArgs, run } from './media.js';
 
 export const READ_DEFAULTS = {
   gridWidth: 96,
@@ -36,6 +36,10 @@ export const READ_DEFAULTS = {
   // share of the 12x7 block grid that must move for two keyframes to count as
   // different screens; a slide that is re-shown moves nothing
   screenChange: 0.055,
+  // sampling on the clock (short clips) already guarantees the pictures differ
+  // in time, so the gate only has to reject literally identical frames: a
+  // 4-line subtitle strip is 2% of the frame and used to be dropped here
+  denseChange: 0.004,
   // how much of a pair of screens must share text bigrams to be the same screen
   textSimilarity: 0.55,
   maxScreens: 400,
@@ -289,17 +293,53 @@ export function textSimilarity(a, b) {
  */
 export function mergeScreens(screens, opts = {}) {
   const threshold = opts.similarity ?? READ_DEFAULTS.textSimilarity;
+  const novelLine = Boolean(opts.novelLine);
   const out = [];
   for (const s of screens) {
     const prev = out[out.length - 1];
-    if (prev && textSimilarity(prev.text, s.text) >= threshold) {
+    // A fixed layout whose only change is the subtitle line has near-identical
+    // text, so similarity alone would merge it away and the reader would quote
+    // one line of a four-line clip. In dense mode, a screen that contributes a
+    // line the previous one does not have is a new screen, not a duplicate.
+    const adds = novelLine && prev ? novelLines(prev.lines, s.lines) : 0;
+    if (prev && adds === 0 && textSimilarity(prev.text, s.text) >= threshold) {
       prev.tEnd = s.t;
       if (s.text.length > prev.text.length) prev.text = s.text;
       continue;
     }
-    out.push({ t: s.t, tEnd: s.t, text: s.text });
+    out.push({ t: s.t, tEnd: s.t, text: s.text, lines: s.lines });
   }
+  for (let i = 0; i < out.length - 1; i++) out[i].tEnd = out[i + 1].t;
+  if (out.length) out[out.length - 1].tEnd = out[out.length - 1].t;
   return out;
+}
+
+/** how many lines of `next` say something the previous screen did not */
+function novelLines(prev, next) {
+  if (!Array.isArray(prev) || !Array.isArray(next)) return 0;
+  let n = 0;
+  for (const line of next) {
+    if (wordChars(line) < 6) continue;
+    let seen = false;
+    for (const old of prev) {
+      if (textSimilarity(old, line) >= 0.72) { seen = true; break; }
+    }
+    if (!seen) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Is there enough readable text to be worth quoting?
+ *
+ * Three screens was the old rule and it was wrong twice over: a 25 s clip can
+ * honestly hold four subtitle lines, and a handwritten page can produce three
+ * fragments of noise. Content, not count, is the test.
+ */
+export function usableScreens(screens, { minScreens = 3, minChars = 40 } = {}) {
+  const chars = screens.reduce((n, s) => n + contentChars(s.text), 0);
+  const enough = screens.length >= minScreens || chars >= minChars;
+  return { usable: enough ? screens : [], chars };
 }
 
 /** headings worth pulling out so the document can be skimmed */
@@ -359,21 +399,28 @@ export function gridChange(a, b, delta = 10, dark = 12) {
   return active ? moved / active : 0;
 }
 
-/** decode keyframes only, returning their block grids and timestamps */
-function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, dense = 0 } = {}) {
+/**
+ * Decode keyframes (or, on a short clip, one frame every `dense` seconds) into
+ * 96x54 block grids with their presentation timestamps.
+ *
+ * The fps flag is chosen per binary and retried with the other spelling, because
+ * ffmpeg 8 removed `-vsync` while older builds reject `-fps_mode`.
+ */
+async function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, dense = 0 } = {}) {
   const { gridWidth: w, gridHeight: h } = READ_DEFAULTS;
-  const args = ['-hide_banner', '-nostdin'];
-  if (!dense) args.push('-skip_frame', 'nokey');
-  if (start) args.push('-ss', String(start));
-  args.push(...netInputArgs(input), '-i', input);
-  if (end) args.push('-t', String(end - start));
+  const base = ['-hide_banner', '-nostdin'];
+  if (!dense) base.push('-skip_frame', 'nokey');
+  if (start) base.push('-ss', String(start));
+  base.push(...netInputArgs(input), '-i', input);
+  if (end) base.push('-t', String(end - start));
   const pre = dense ? `fps=1/${dense},` : '';
-  args.push('-vf', `${pre}scale=${w}:${h}:flags=fast_bilinear,showinfo,format=rgb24`,
-    '-vsync', '0', '-f', 'rawvideo', '-');
-  return new Promise((resolve, reject) => {
-    const child = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'], signal });
+  const tail = ['-vf', `${pre}scale=${w}:${h}:flags=fast_bilinear,showinfo,format=rgb24`, '-f', 'rawvideo', '-'];
+
+  const attempt = (fpsArgs) => new Promise((resolve, reject) => {
+    const child = spawn(ffmpegPath, [...base, ...fpsArgs, ...tail], {
+      stdio: ['ignore', 'pipe', 'pipe'], signal,
+    });
     const grids = [];
-    let stamps = [];
     let buf = Buffer.alloc(0);
     let err = '';
     const size = w * h * 3;
@@ -391,11 +438,47 @@ function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, dense 
         reject(new Error(`keyframe decode failed (${code}): ${err.slice(-300)}`));
         return;
       }
-      stamps = [];
+      const stamps = [];
       for (const m of err.matchAll(/pts_time:([0-9.]+)/g)) stamps.push(Number(m[1]));
-      resolve({ grids, stamps });
+      resolve({ grids, stamps, err });
     });
   });
+
+  let fpsArgs = await fpsModeArgs(ffmpegPath);
+  try {
+    const out = await attempt(fpsArgs);
+    return { grids: out.grids, stamps: out.stamps, fpsMode: fpsArgs[0] };
+  } catch (error) {
+    if (!/Unrecognized option/i.test(error.message)) throw error;
+    fpsArgs = altFpsModeArgs(fpsArgs);
+    const out = await attempt(fpsArgs);
+    return { grids: out.grids, stamps: out.stamps, fpsMode: fpsArgs[0] };
+  }
+}
+
+/**
+ * Dense pass: write the sampled frames at slide resolution, in the same order
+ * the grid pass saw them.
+ *
+ * Why this exists: `stamps[i]` names the moment a 96x54 grid was compared, but a
+ * seek to `stamps[i]` decodes a slightly different frame -- the `fps` filter
+ * hands out the frame at or before the tick, while the seek lands on the tick.
+ * On a fixed layout whose only change is a subtitle line those two are different
+ * sentences, so a stamp-based grab quoted one screen and skipped the next. The
+ * same `fps=1/step` filter over the same input yields the same frames in the
+ * same order, so frame N of this pass IS the frame the grid pass measured.
+ */
+async function extractDenseFrames(ffmpegPath, input, { start = 0, end = 0, step = 1.2, crop, dir, signal } = {}) {
+  const cw = Math.max(2, Math.round(crop.w * 1000)) / 1000;
+  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin'];
+  if (start) args.push('-ss', String(start));
+  args.push(...netInputArgs(input), '-i', input);
+  if (end) args.push('-t', String(end - start));
+  args.push('-vf', `fps=1/${step},crop=iw*${cw}:ih*${crop.h}:iw*${crop.x}:ih*${crop.y}`,
+    '-q:v', '2', '-y', join(dir, 'd%05d.png'));
+  const res = await run(ffmpegPath, args, { signal, timeoutMs: 0 });
+  if (res.code !== 0) throw new Error(`dense frame extract failed (${res.code}): ${String(res.stderr).slice(-200)}`);
+  return { dir };
 }
 
 /**
@@ -444,10 +527,12 @@ export async function runRead(opts) {
   const t0 = Date.now();
   // a short clip changes faster than its keyframes do, so sample on the clock
   let dense = 0;
+  let knownEnd = end || 0;
   if (!end) {
     try {
       const meta = await probeVideo(source, { ffmpegPath });
       const span = (meta.duration || 0) - start;
+      if (span > 0) knownEnd = start + span;
       if (span > 1 && span <= READ_DEFAULTS.denseUnder) dense = READ_DEFAULTS.denseSeconds;
     } catch { /* no duration: fall back to keyframes */ }
   }
@@ -458,7 +543,8 @@ export async function runRead(opts) {
   const picked = [];
   let last = -1;
   for (let i = 0; i < grids.length; i++) {
-    if (last < 0 || gridChange(grids[last], grids[i]) >= READ_DEFAULTS.screenChange) {
+    const gate = dense ? READ_DEFAULTS.denseChange : READ_DEFAULTS.screenChange;
+    if (last < 0 || gridChange(grids[last], grids[i]) >= gate) {
       picked.push(i);
       last = i;
       if (picked.length >= maxScreens) break;
@@ -470,31 +556,57 @@ export async function runRead(opts) {
   try {
     const t1 = Date.now();
     const names = new Map();
-    const queue = [...picked];
     const cw = Math.max(2, Math.round(crop.w * 1000)) / 1000;
     const cropFilter = `crop=iw*${cw}:ih*${crop.h}:iw*${crop.x}:ih*${crop.y}`;
-    await Promise.all(Array.from({ length: READ_DEFAULTS.grabWorkers }, async () => {
-      while (queue.length) {
-        const i = queue.shift();
-        // a keyframe can land mid-scroll or mid-dissolve; go a beat later, when
-        // the page has settled, or the OCR reads a half-drawn screen
-        const t = start + (stamps[i] ?? 0) + READ_DEFAULTS.settle;
-        const name = `f${String(Math.round(t * 10)).padStart(6, '0')}`;
+    mkdirSync(dir, { recursive: true });
+    const ocrDir = join(dir, 'ocr');
+    mkdirSync(ocrDir, { recursive: true });
+
+    let exact = null;
+    if (dense) {
+      try {
+        const rawDir = join(dir, 'raw');
+        mkdirSync(rawDir, { recursive: true });
+        await extractDenseFrames(ffmpegPath, source, { start, end, step: dense, crop, dir: rawDir, signal });
+        exact = rawDir;
+      } catch { exact = null; }   // fall back to seeking by timestamp
+    }
+
+    if (exact) {
+      // The measured frame and the read frame are the same file: copy the chosen
+      // ones by index, so no timestamp arithmetic can drift by a tick.
+      for (const i of picked) {
+        if (i >= grids.length) continue;
+        const name = `d${String(i + 1).padStart(5, '0')}`;
+        try { copyFileSync(join(exact, `${name}.png`), join(ocrDir, `${name}.png`)); } catch { continue; }
         names.set(i, name);
-        await new Promise((resolve, reject) => {
-          const child = spawn(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-nostdin',
-            '-ss', t.toFixed(3), ...netInputArgs(source), '-i', source,
-            '-frames:v', '1', '-vf', cropFilter,
-            '-y', join(dir, `${name}.png`)], { stdio: 'ignore', signal });
-          child.on('error', reject);
-          child.on('close', resolve);
-        });
       }
-    }));
+    } else {
+      const queue = [...picked];
+      await Promise.all(Array.from({ length: READ_DEFAULTS.grabWorkers }, async () => {
+        while (queue.length) {
+          const i = queue.shift();
+          // A keyframe can land mid-scroll or mid-dissolve; go a beat later, when
+          // the page has settled, or the OCR reads a half-drawn screen.
+          const t = start + (stamps[i] ?? 0) + READ_DEFAULTS.settle;
+          const name = `f${String(Math.round(t * 10)).padStart(6, '0')}`;
+          names.set(i, name);
+          await new Promise((resolve, reject) => {
+            const child = spawn(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-nostdin',
+              '-ss', t.toFixed(3), ...netInputArgs(source), '-i', source,
+              '-frames:v', '1', '-vf', cropFilter,
+              '-y', join(ocrDir, `${name}.png`)], { stdio: 'ignore', signal });
+            child.on('error', reject);
+            child.on('close', resolve);
+          });
+        }
+      }));
+    }
     timings.grab = Date.now() - t1;
 
     const t2 = Date.now();
-    const recognised = await ocrDirectory(dir, { signal });
+    const recognised = await ocrDirectory(ocrDir, { signal });
+    if (process.env.DSH_READ_DEBUG) { const k0=[...recognised.keys()][0]; const r0=recognised.get(k0); console.error('[dbg] rec0=%s lines=%d text0=%s', k0, (r0.lines||[]).length, JSON.stringify((r0.lines||[]).slice(0,2))); }
     timings.ocr = Date.now() - t2;
 
     const raw = [];
@@ -513,26 +625,34 @@ export async function runRead(opts) {
       // still yields a heading or an example number is worth its few tokens;
       // a frame of loose strokes is not. The header says when little was found.
       if (!readableScreen(s.lines)) continue;
-      screens.push({ t: s.t, text });
+      screens.push({ t: s.t, text, lines: s.lines });
     }
-    const merged = mergeScreens(screens);
+    const merged = mergeScreens(screens, { novelLine: Boolean(dense) });
     // a second pass at a looser threshold: the leftover duplicates are the ones
     // whose OCR came out degraded, so their bigrams overlap less
-    const deduped = mergeScreens(merged, { similarity: 0.40 });
+    const deduped = mergeScreens(merged, { similarity: 0.40, novelLine: Boolean(dense) });
     timings.total = Date.now() - wall;
 
-    const heads = outline(merged);
-    const head = `# ${sourceTitle || input.split(/[\\/]/).pop()} — read as text · ${deduped.length >= 3 ? deduped.length : 0} screens · ${stamps.length} keyframes · ${timings.total} ms`;
+    // One array, one count: the header, the note, the outline and every quoted
+    // line come from the same list, so the numbers cannot disagree with the body.
+    const { usable } = usableScreens(deduped);
+    if (usable.length) {
+      const last = usable[usable.length - 1];
+      if (!(last.tEnd > last.t)) last.tEnd = knownEnd > last.t ? knownEnd : last.t + (dense || 1);
+    }
+    const heads = outline(usable);
+    const head = `# ${sourceTitle || input.split(/[\\/]/).pop()} — read as text · ${usable.length} screens · ${stamps.length} keyframes · ${timings.total} ms`;
     const body = [head];
-    // Two fragments of strokes are not a reading. Under three screens there is
-    // nothing to quote that a reader could use, and quoting it anyway is how a
-    // tool loses trust on its first handwritten video.
-    // `deduped` is the second dedupe pass; quoting `merged` here would undo it
-    const usable = deduped.length >= 3 ? deduped : [];
-    if (deduped.length < 5) {
-      body.push('', `note: only ${deduped.length} screen${deduped.length === 1 ? '' : 's'} carried readable text `
-        + `out of ${raw.length} distinct pictures -- this video may be handwritten, be a camera recording, `
-        + 'or have no slides. video_storyboard shows the pictures; the audio summary still applies.');
+    if (usable.length < 5) {
+      // Say what was found and name the alternatives; do not tell the reader
+      // their video is broken. Under three screens the old code also threw away
+      // four honest subtitle lines, so few screens is reported, not discarded.
+      const found = usable.length === 1 ? 'one screen' : `${usable.length} screens`;
+      body.push('', `note: ${found} carried readable text out of ${raw.length} sampled `
+        + `(${Math.round((timings.total / 1000) * 10) / 10} s). Few screens usually means one of: `
+        + 'handwriting, a camera pointed at a screen rather than a capture, no slides at all, '
+        + 'or a fixed layout whose only change is a subtitle line -- video_storyboard shows the '
+        + 'pictures, and the audio summary still applies.');
     }
     if (heads.length > 2) {
       body.push('', '## outline');
@@ -553,7 +673,7 @@ export async function runRead(opts) {
         clustered: picked.length,
         screens: usable.length,
         chars: text.length,
-        fromScreen: Math.round(text.length / Math.max(1, merged.length)),
+        fromScreen: Math.round(text.length / Math.max(1, usable.length)),
         furniture: cleaned.dropped.length,
       },
       timings,

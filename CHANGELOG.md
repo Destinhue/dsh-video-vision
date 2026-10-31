@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.3.3
+
+### Fixed — four things a reader hit on real files
+
+- **ffmpeg 8 and later failed outright.** The frame decoder asked for `-vsync 0`,
+  which ffmpeg 8 removed, and the tool died with `Unrecognized option 'vsync'`
+  before reading a single frame. It now asks its own binary for its version once
+  and picks the spelling that build understands — `-fps_mode passthrough` from
+  5.1 on, `-vsync 0` before that — and if a build rejects the choice anyway, the
+  decode is retried once with the other spelling.
+- **A fixed layout whose only change is the subtitle returned 0 screens.** The
+  whole-frame gate treats a 2 % change as "the same picture", so 21 sampled
+  frames collapsed to one and the other three lines were thrown away. In dense
+  mode the gate is now 0.004, a screen that contributes a line the previous one
+  does not have counts as a new screen, and the sampled frames are the frames
+  that get read.
+- **The frames that were measured are now the frames that are read.** A seek to
+  the timestamp of a 96x54 grid decodes a *slightly different* frame than the
+  `fps` filter handed the grid pass, which on subtitle-only changes quoted the
+  previous sentence and skipped the next. The dense pass writes the sampled
+  frames in the same order the grids saw them, so frame N of the read is frame N
+  of the measurement.
+- **OCR sections were parsed only when the file was called `f…`.** The dense pass
+  writes `d00001.png`, so every record came back empty. The section parser takes
+  any stem now.
+- A short clip with four real subtitle lines is reported, not discarded: the old
+  "fewer than three screens means nothing was found" floor is replaced by
+  "screens **or** ≥40 content characters", and the header, the note, the outline
+  and the quoted body all come from that one list.
+- The "this video may be handwritten / a camera recording" note no longer
+  asserts a cause. It reports what was found and names the possibilities —
+  handwriting, a phone pointed at a screen, no slides at all, or a fixed layout
+  whose only change is a subtitle line.
+
+### Measured
+
+| | before | after |
+| --- | --- | --- |
+| 25 s, still frame, four subtitle lines | 0 screens | 4 screens, correct spans (2.7 s) |
+| ffmpeg 8.0.1, any read | `Unrecognized option 'vsync'` | works (`-fps_mode passthrough`) |
+| `D_slideshow_720p.mp4` (36 s, text cards) | 6 screens | 6 screens |
+| 1:59:54 lecture, keyframe path | 53 screens / 7 663 chars | unchanged path, unchanged numbers |
+
+### Tests
+
+`224 → 229` (fps-flag fallback, the novel-line rule, the content floor, the
+section parser).
+
+
 ## 1.3.2
 
 ### Added

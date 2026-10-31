@@ -50,7 +50,9 @@ test('mergeScreens joins a re-shown slide and keeps the longest text', () => {
   const out = mergeScreens(screens, { similarity: 0.6 });
   assert.equal(out.length, 2);
   assert.equal(out[0].t, 10);
-  assert.equal(out[0].tEnd, 40);
+  // spans are contiguous: the merged screen owns the time until the next one,
+  // which is what the printed [mm:ss-mm:ss] ranges mean
+  assert.equal(out[0].tEnd, 80);
   assert.match(out[0].text, /技巧在怎么划归/);
 });
 
