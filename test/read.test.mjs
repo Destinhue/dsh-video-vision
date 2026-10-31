@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cleanOcr, isChrome, isChatter, screenText, screenLines, contentChars, wordChars, dropBoilerplate, readableScreen,
-  textSimilarity, mergeScreens, outline, gridChange, READ_DEFAULTS,
+  textSimilarity, mergeScreens, outline, gridChange, READ_DEFAULTS, capNotes,
+  fallbackTimes, FALLBACK_CELLS,
 } from '../src/read.js';
 
 test('cleanOcr puts CJK prose back together', () => {
@@ -194,4 +195,53 @@ test('a wide line near the bottom survives, a short one is a status bar', () => 
     lines: [{ text: '例题 1', x0: 300, y0: 300, x1: 420, y1: 340 }],
   });
   assert.equal(caption.length, 1);
+});
+
+test('capNotes stays quiet when every changed frame fit', () => {
+  assert.deepEqual(capNotes({ changed: 10, maxScreens: 400 }), []);
+  assert.deepEqual(capNotes({}), []);
+});
+
+test('capNotes names the cap instead of silently stopping', () => {
+  const notes = capNotes({ changed: 900, maxScreens: 400 });
+  assert.equal(notes.length, 1);
+  assert.match(notes[0], /capped at 400 of 900 changed frames/);
+  assert.match(notes[0], /raise maxScreens, or read a window/);
+});
+
+test('capNotes reports a request that the hard ceiling trimmed', () => {
+  const notes = capNotes({ askedScreens: 900, changed: 5, maxScreens: 400 });
+  assert.equal(notes.length, 1);
+  assert.match(notes[0], /maxScreens 900 capped at 400/);
+});
+
+test('fallbackTimes spreads the pictures across the window, never on its edges', () => {
+  const cells = fallbackTimes({ start: 10, end: 70, count: 6 });
+  assert.equal(cells.length, 6);
+  assert.equal(cells[0].index, 1);
+  assert.ok(cells[0].frameT > 10 && cells[0].frameT < 20);
+  assert.ok(cells[5].frameT < 70 && cells[5].frameT > 60);
+  // ascending, so the sheet reads left to right like a timeline
+  for (let i = 1; i < cells.length; i++) assert.ok(cells[i].frameT > cells[i - 1].frameT);
+});
+
+test('fallbackTimes prefers keyframes the scan already decoded', () => {
+  const stamps = [0.5, 4, 9.25, 12, 30, 44.5, 51];
+  const cells = fallbackTimes({ start: 2, end: 60, stamps, count: 4 });
+  assert.equal(cells.length, 4);
+  for (const c of cells) {
+    const offset = c.frameT - 2;
+    assert.ok(stamps.some((s) => Math.abs(s - offset) < 1e-6), `${c.frameT} is a decoded keyframe`);
+  }
+  assert.ok(cells[cells.length - 1].frameT > cells[0].frameT);
+});
+
+test('fallbackTimes survives a window shorter than the cell count', () => {
+  const cells = fallbackTimes({ start: 4, end: 4.5, count: 6 });
+  assert.equal(cells.length, 6);
+  for (const c of cells) assert.ok(c.frameT >= 4 && c.frameT <= 4.5);
+});
+
+test('the fallback sheet is six cells unless asked otherwise', () => {
+  assert.equal(FALLBACK_CELLS, 6);
 });

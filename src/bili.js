@@ -17,7 +17,7 @@
  * ffmpeg only when there is a subtitle track worth muxing in.
  */
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, rmdir, stat, utimes, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { get as httpGet } from 'node:https';
@@ -82,6 +82,44 @@ export function parseBilibili(input) {
 
 export function isBilibili(input) {
   return parseBilibili(input) != null;
+}
+
+/**
+ * Name the B站 links this plugin cannot read, in one sentence.
+ *
+ * These are well-formed pages that carry no single video the pipeline could
+ * decode: an episode needs a login and a regional licence, a collection is a
+ * list of videos rather than one video, a room has no fixed length. Without
+ * this, the download path decides the input is a local file and reports a
+ * missing path, which is true and useless.
+ */
+export function bilibiliRejection(input) {
+  if (typeof input !== 'string') return null;
+  const text = input.trim();
+  if (!/bilibili\.com|b23\.tv/i.test(text)) return null;
+
+  // The page type is decided before the id: a "watch later" list URL carries a
+  // bvid in its query string, and reading it as that video needs the login the
+  // page itself needs.
+  const ep = /bangumi\/play\/(ep|ss)(\d+)/i.exec(text);
+  if (ep) {
+    const what = ep[1].toLowerCase() === 'ep' ? `番剧第 ${ep[2]} 话` : `番剧系列 ss${ep[2]}`;
+    return `这是 B站 ${what} 页面，不是普通投稿：番剧要登录与区域版权校验，音视频又是分轨的，本插件不下载它。请给出视频页链接（…/video/BV…）。`;
+  }
+  if (/bangumi\/media\/md/i.test(text)) {
+    return '这是 B站 番剧详情页（md…），里面没有一条可以直接解码的视频：请给出具体视频页链接（…/video/BV…）。';
+  }
+  if (/live\.bilibili\.com/i.test(text)) {
+    return '这是 B站 直播间：直播没有固定时长，没有可以按格子切分的结尾，本插件只读已经发布好的视频。';
+  }
+  if (/space\.bilibili\.com\/\d+\/(lists|channel|favlist|season)/i.test(text) || /bilibili\.com\/list\//i.test(text)) {
+    return '这是 B站 的合集/列表页面，里面是一组视频而不是一个视频：请挑出要读的那一条，给出它的视频页链接（…/video/BV…）。';
+  }
+  if (/(t\.bilibili\.com|bilibili\.com\/(read|opus))/i.test(text)) {
+    return '这是 B站 的图文动态，不是视频：本插件读视频与其中的文字，不读图文帖子。';
+  }
+  if (isBilibili(text)) return null;
+  return '这个 B站 页面上没有视频 id：请给出具体视频页（…/video/BV…）或 av 号。';
 }
 
 function cookieHeader(cookie) {
@@ -241,13 +279,50 @@ export function normalizeView(data, page = 1) {
 /** Metadata for a B站 link. No download: this is the cheap first call. */
 export async function bilibiliView(input, { cookie = null, signal = null } = {}) {
   let target = parseBilibili(input);
-  if (!target) throw new Error(`看不懂这个 B站 链接: ${input}`);
+  if (!target) throw new Error(bilibiliRejection(input) ?? `看不懂这个 B站 链接: ${input}`);
   if (target.short) {
     target = await resolveShortLink(target.short, { signal });
   }
   const query = target.bvid ? `bvid=${target.bvid}` : `aid=${target.aid}`;
   const body = await biliJson(`${VIEW}?${query}`, { cookie, signal });
   return normalizeView(body.data, target.page ?? 1);
+}
+
+/**
+ * A tiny TTL map.
+ *
+ * One reading session probes, storyboards and zooms the same link; each entry
+ * point used to pay its own playurl handshake, which is both slow and the
+ * endpoint B站 rate-limits hardest. A signed URL is good for about two hours,
+ * so ten minutes of reuse is safe and covers every repeat call of one session.
+ */
+export function createTtlCache({ ttlMs = 600_000, now = Date.now } = {}) {
+  const store = new Map();
+  return {
+    get(key) {
+      const hit = store.get(key);
+      if (!hit) return undefined;
+      if (now() - hit.at > ttlMs) {
+        store.delete(key);
+        return undefined;
+      }
+      return hit.value;
+    },
+    set(key, value) {
+      store.set(key, { at: now(), value });
+      return value;
+    },
+    delete(key) { return store.delete(key); },
+    clear() { store.clear(); },
+    get size() { return store.size; },
+  };
+}
+
+const PLAY_CACHE = createTtlCache({ ttlMs: Number(process.env.DSH_BILIBILI_PLAY_TTL_MS) || 10 * 60_000 });
+
+/** Drop the playurl entries; tests and callers that changed cookies use this. */
+export function clearPlayCache() {
+  PLAY_CACHE.clear();
 }
 
 /**
@@ -259,6 +334,9 @@ export async function bilibiliView(input, { cookie = null, signal = null } = {})
 export async function bilibiliPlay(input, { cookie = null, signal = null, maxHeight = 1080 } = {}) {
   const meta = typeof input === 'object' && input ? input : await bilibiliView(input, { cookie, signal });
   if (!meta.cid) throw new Error('这个视频没有可播放的分P');
+  const cacheKey = `${meta.bvid || `av${meta.aid}`}|${meta.cid}|${maxHeight}|${cookie ? 'auth' : 'anon'}`;
+  const hit = PLAY_CACHE.get(cacheKey);
+  if (hit) return { ...hit, meta, cached: true };
   const allowed = QUALITIES.filter((q) => q.height <= maxHeight);
   const params = new URLSearchParams({
     bvid: meta.bvid,
@@ -279,7 +357,7 @@ export async function bilibiliPlay(input, { cookie = null, signal = null, maxHei
     length: Number(s.length || 0),
   }));
   const size = urls.reduce((sum, u) => sum + u.size, 0) || null;
-  return {
+  return PLAY_CACHE.set(cacheKey, {
     meta,
     quality: Number(data.quality || 0),
     label: qualityLabel(Number(data.quality || 0)),
@@ -287,7 +365,8 @@ export async function bilibiliPlay(input, { cookie = null, signal = null, maxHei
     urls,
     size,
     duration: Number(data.timelength ? data.timelength / 1000 : meta.duration),
-  };
+    cached: false,
+  });
 }
 
 function fetchToFile(url, dest, { cookie = null, signal = null, onBytes = null, headers = {} } = {}) {
@@ -434,6 +513,79 @@ export function cacheDirFor(env = process.env) {
   return join(home, 'cache', 'video-vision', 'bilibili');
 }
 
+/** How much downloaded video the cache may keep before pruning itself. */
+export function cacheLimits(env = process.env) {
+  const mb = Number(env.DSH_BILIBILI_CACHE_MB);
+  const files = Number(env.DSH_BILIBILI_CACHE_MAX);
+  return {
+    maxBytes: (Number.isFinite(mb) && mb > 0 ? mb : 4096) * 1048576,
+    maxVideos: Number.isFinite(files) && files > 0 ? Math.floor(files) : 24,
+  };
+}
+
+/**
+ * Keep the download cache under a byte budget and a video count, evicting the
+ * least recently used first.
+ *
+ * A B站 lecture is a few hundred megabytes and a user who reads twenty of them
+ * has spent the disk without noticing; a cache with no ceiling is a leak with a
+ * nice name. The video a caller just used is never evicted, even when it alone
+ * exceeds the budget.
+ */
+export async function pruneBilibiliCache(cacheDir, {
+  maxBytes = 4096 * 1048576, maxVideos = 24, keep = null,
+} = {}) {
+  let top = [];
+  try {
+    top = await readdir(cacheDir, { withFileTypes: true });
+  } catch {
+    return { removed: [], bytes: 0, files: 0 };
+  }
+  const entries = [];
+  for (const d of top) {
+    if (!d.isDirectory()) continue;
+    const dir = join(cacheDir, d.name);
+    let names = [];
+    try {
+      names = await readdir(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!name.endsWith('.mp4') || name.endsWith('.sub.mp4')) continue;
+      const path = join(dir, name);
+      try {
+        const info = await stat(path);
+        entries.push({ path, dir, base: name.replace(/\.mp4$/, ''), bytes: info.size, at: info.mtimeMs });
+      } catch {
+        // vanished under us: someone else pruned it
+      }
+    }
+  }
+  entries.sort((a, b) => a.at - b.at);
+  let total = entries.reduce((sum, e) => sum + e.bytes, 0);
+  let files = entries.length;
+  const removed = [];
+  for (const e of entries) {
+    if (total <= maxBytes && files <= maxVideos) break;
+    if (keep && e.path === keep) continue;
+    for (const suffix of ['.mp4', '.json', '.srt', '.sub.mp4']) {
+      await rm(join(e.dir, `${e.base}${suffix}`), { force: true });
+    }
+    // leave no empty folder behind; rmdir refuses politely if a fresh download
+    // has already started writing there
+    try {
+      await rmdir(e.dir);
+    } catch {
+      // not empty: keep it
+    }
+    total -= e.bytes;
+    files -= 1;
+    removed.push({ path: e.path, bytes: e.bytes });
+  }
+  return { removed, bytes: total, files };
+}
+
 function safeName(text) {
   return String(text || '')
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
@@ -525,6 +677,8 @@ export async function bilibiliFile(input, {
       const info = await stat(final);
       const saved = JSON.parse(await readFile(sidecar, 'utf8'));
       if (info.size > 0 && (!play.size || Math.abs(info.size - play.size) <= 1024 || info.size === saved.bytes)) {
+        // mark it as used, so the size cap evicts the least recently read video
+        await utimes(final, new Date(), new Date());
         return {
           path: final,
           meta,
@@ -600,6 +754,13 @@ export async function bilibiliFile(input, {
     bytes: info.size, meta, subtitle, at: new Date().toISOString(),
   }, null, 2), 'utf8');
   if (log) log(`下载完成 ${(info.size / 1048576).toFixed(1)} MB · ${((Date.now() - started) / 1000).toFixed(1)} s`);
+  // A cache with no ceiling is a leak with a nice name: trim to the budget,
+  // never evicting the file this call just produced.
+  try {
+    await pruneBilibiliCache(cacheDir, { ...cacheLimits(), keep: final });
+  } catch {
+    // housekeeping must never fail a download that succeeded
+  }
   return {
     path: final,
     meta,

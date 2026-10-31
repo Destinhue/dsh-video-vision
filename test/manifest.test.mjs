@@ -257,3 +257,13 @@ test('the shot list honours maxShots', () => {
   };
   assert.equal(formatShotList({ cuts: [] }, plan, { maxShots: 3 }).split('\n').length, 3);
 });
+
+test('notes about what the request lost are printed after the sheet line', () => {
+  const { text } = formatManifest(fixture({ notes: ['start 00:40.00 moved to 00:11.80 — the file is 00:12.00 long'] }));
+  assert.ok(text.includes('\nnote: start 00:40.00 moved to 00:11.80 — the file is 00:12.00 long'), text);
+});
+
+test('a manifest without notes prints no note lines', () => {
+  const { text } = formatManifest(fixture());
+  assert.equal((text.match(/^note: /gm) ?? []).length, 0, text);
+});

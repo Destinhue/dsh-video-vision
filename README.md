@@ -2,11 +2,14 @@
 
 Look at a video instead of being told about one: **one addressable storyboard
 grid per view**, tuned for `deepseek-v4.1-flash` vision. Drop-in replacement for
-`dsh-video-storyboard` / `dsh-video-understand` — same three tool names, same
-argument shapes, a different engine underneath.
+`dsh-video-storyboard` / `dsh-video-understand` — the same three tool names and
+argument shapes as those, plus two answers they do not have: a text map of the
+whole file that draws nothing, and a transcript for a file that has sound but no
+picture.
 
 ```
 video_probe       metadata + a reading plan, no frames decoded
+video_outline     the whole file as rows of text — 0 images, 0 vision tokens
 video_storyboard  one contact sheet + a text index binding every cell to a timecode
 video_zoom        1-9 large cells over a short window
 video_read        the whole video as timestamped TEXT — for lectures, slides, screen recordings
@@ -18,7 +21,7 @@ any other file.
 
 Picture paths are for film, sport, gameplay, anything where the picture *is* the
 content. When the content is text on the screen, `video_read` wins outright: a
-two-hour lecture becomes ~7.6k characters of `[mm:ss] text` plus an outline of its
+two-hour lecture becomes 7.7k characters of `[mm:ss] text` plus an outline of its
 eleven worked examples, which the model can quote, search and rewrite into notes —
 where a 1024-token contact sheet is unreadable at that size. It costs 87 s for two
 hours of video, 5.6 s for a 95-second subtitled clip, and 1.3 s for a 36-second one.
@@ -78,6 +81,25 @@ same 1 024-token budget.
 inputs, one output each), three processes in flight — a 20-cell sheet costs 2-4
 process launches instead of 60.
 
+**The cheapest look is a look at nothing.** `video_outline` cuts the file into
+equal windows and answers in rows — cuts, speech share, an eight-character
+intensity bar, a tag — then names the three windows worth opening and the exact
+`start`/`end` to open them with. It costs **zero vision tokens** and under a
+second for a short clip: the point is to decide *where* to spend a sheet, which
+is the one thing a contact sheet cannot tell you about a two-hour lecture.
+
+**A cell is never a smear.** `auto` used to fill a 1.76 Mpx sheet with 28 cells
+whatever the source size, so a 4K file got 28 pictures of 77 px tall. The sheet
+keeps its budget and now spends it on fewer, bigger cells — no cell smaller than
+a fifth of the source height: 720p 28, 1080p 21, 1440p 11, 4K 5 — at the same
+~1 024 tokens, and it says so when the rail binds.
+
+**Ten minutes in, it reads the keyframes.** A long file is analysed on its
+keyframes when they are at least a second apart: 2.7× faster on a two-hour
+lecture, with a note naming what a shorter change would hide and
+`DSH_SCAN_KEYFRAMES=off` to undo it. Short windows and short files decode every
+frame exactly as before.
+
 **No prose in results.** Reading instructions live in the tool description,
 which sits in the cached prompt prefix and is paid once; the result itself is
 only the index and the image. `textOnly` + `cellRange` pages a long film at zero
@@ -105,7 +127,13 @@ Nine clips, frame-exact ground truth, one machine, driven directly as a module
 | a 2-hour lecture, read as text | **87 s**, 53 screens, 7.7k chars |
 | a 36-second card clip, read as text | **1.3 s**, 6 screens |
 | a 95-second subtitled clip, read as text | **5.6 s**, 11 screens |
+| a 40-second clip, mapped as text | **0.9 s**, 8 windows, **0 vision tokens** |
+| a 70-second gameplay clip, mapped | **2.6 s**, 24 cuts in 8 windows |
 | a B站 link, probe only (no download) | **226 ms** |
+
+The text map is the one number that is zero by construction: `video_outline`
+returns no image at all, so it can run over a whole file before any sheet is
+paid for.
 
 On a **13-minute** film one call returns **one** image: 28 cells at 331x186,
 1 024 tokens, 6.2 s, ~1 353 tokens of context including the index. Full table
@@ -155,10 +183,10 @@ retrying with the other spelling if the build rejects the first.
 Verify a machine end to end (no video needed — it builds one):
 
 ```bash
-node bin/selfcheck.mjs --smoke          # 18 checks, builds its own clip
-node bin/selfcheck.mjs --smoke --host   # 33 checks: validates all four tools against the
+node bin/selfcheck.mjs --smoke          # 21 checks, builds its own clip
+node bin/selfcheck.mjs --smoke --host   # 40 checks: validates all five tools against the
                                         # installed Harness's schema engine
-node --test test/                       # 237 tests, no network, hermetic temp dirs
+node --test test/                       # 314 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -171,6 +199,45 @@ and nothing local notices until a user calls it.
 ---
 
 ## Use
+
+### Map it first — it costs nothing
+
+```
+video_outline input:"dsh-video-vision-promo.mp4" windows:8 top:3
+```
+
+```
+dsh-video-vision-promo.mp4 · 00:57 · 13 cuts · speech 97% · 8 windows of 00:07
+note: text only — nothing was drawn, so this answer costs no image tokens; ask video_storyboard for a window once this says which one
+   1  00:00-00:07  ▄███████  cuts 0  speech  93%  dark talk
+   2  00:07-00:14  ████████  cuts 2  speech 100%  dark busy
+   3  00:14-00:21  ████████  cuts 1  speech 100%  dark busy
+   4  00:21-00:28  ████████  cuts 3  speech 100%  busy talk
+   5  00:28-00:35  ████████  cuts 2  speech 100%  dark busy
+   6  00:35-00:42  ████████  cuts 1  speech 100%  dark busy
+   7  00:42-00:50  ████████  cuts 2  speech 100%  dark busy
+   8  00:50-00:57  ██████▇▁  cuts 2  speech  86%  dark busy
+watch first: 4 (00:21-00:28, 3 cuts, speech 100%) · 2 (00:07-00:14, 2 cuts, speech 100%) · 5 (00:28-00:35, 2 cuts, speech 100%)
+next: video_storyboard start=21 end=28 for the pictures, video_read start=21 end=28 for the words
+```
+
+(That is an untouched run over this package's own 57-second promo clip: 1.9 s,
+no image, no vision tokens.)
+
+Each row is one window: cuts, the share of it that is speech, an intensity bar
+(eight slices, height = cuts, motion, speech and loud events), and at most two
+tags — `dark`, `static`, `quiet`, `busy`, `talk`. `watch first` ranks by how
+much changes on screen first and how much is said second; `next` carries those
+numbers into the call that actually opens a window. Nothing is decoded twice:
+the same analysis pass serves the storyboard of the chosen window.
+
+| argument | meaning |
+| --- | --- |
+| `input` | file path, direct URL, or B站 link |
+| `windows` | 4–60 equal slices (default 24) |
+| `top` | how many windows to name in `watch first` (1–8, default 3) |
+
+### One sheet of pictures
 
 ```
 video_storyboard input:"C:\clips\pv.mp4"
@@ -197,6 +264,7 @@ top-left; the number burned into each cell is the cell index.
 | `detail` | `low` (≤6 cells) · `auto` (≤20, default) · `high` (≤28) |
 | `cells` | force an exact count (1–24) |
 | `pick` | `sharp` (default) or `middle` |
+| `dedupe` | `shots` (default) folds repeats inside a shot · `global` folds them across cuts too |
 | `textOnly` | text index only: no image, no decode |
 | `cellRange` | with `textOnly`, `[first, last]` to list |
 
@@ -228,7 +296,7 @@ video_read input:"C:\clips\lecture.mp4"
 ```
 
 ```
-# lecture.mp4 — read as text · 56 screens · 975 keyframes · 112 s
+# lecture.mp4 — read as text · 53 screens · 975 keyframes · 87 s
 
 ## outline
 00:45 1.1
@@ -249,8 +317,27 @@ makes exact matching useless, so sameness is a character-bigram similarity test.
 Lines that appear on most screens are dropped as furniture — that is how the
 recorder's own header goes away without this plugin knowing which recorder it was.
 When a video has almost no readable text, it says what it found and names the
-likely causes (handwriting, a phone pointed at a screen, no slides at all) rather
-than asserting one, and points at `video_storyboard` for the pictures.
+likely causes (handwriting, a phone pointed at a screen, no slides at all) — and
+then **returns pictures instead of an empty document**: six changed frames are
+decoded and composed into one sheet, with a note saying these are the evidence
+the file carries. A screenshot recorder pointed at a whiteboard is read that way
+rather than refused.
+
+A file with **sound and no picture** is read too. `video_read` checks for a video
+stream before doing anything else, and an mp3, m4a or wav becomes a transcript:
+the `transcriptFile` you pass first, else the container's subtitle track, else
+`DSH_ASR_CMD`. With none of the three it refuses with the three ways
+out in one sentence. `video_probe` on the same file reports the codec and returns
+`plan: null`; `video_storyboard` and `video_zoom` say "there is no picture to
+sample; `video_read` transcribes audio".
+
+Pass `out` to keep the answer as a file — `.srt` or `.vtt` is a subtitle file,
+anything else is `[mm:ss] text` lines, parent directories are created, and the
+last note reports the path and the count:
+
+```
+video_read input:"C:\clips\lecture.mp4" out:"C:\notes\lecture.srt"
+```
 
 Short videos are read by sampling instead of by keyframe: under fifteen minutes
 one frame every 1.2 s is decoded once, gated on a 0.4 % picture change, and the
@@ -265,20 +352,25 @@ is a screen made of very short lines, and a frame where the teacher is writing
 by hand OCRs into a pile of two-character stubs with no sentence in it. Those
 tests are geometric, so they work whatever app the recording came from.
 
-Measured on a real 1:59:54 lecture at 2560x1440: **112 s**, 975 keyframes → 388
-clusters → **56 screens → 10 134 characters**, with all eleven worked examples
-in the outline. The same file through `video_storyboard` takes 163 s and returns
-one 1 024-token sheet whose slide text is unreadable. A 15-minute window reads in
-**16 s**; a 36-second clip in **1.4 s**.
+Measured on a real 1:59:54 lecture at 2560x1440: **87 s** for 975 keyframes →
+**53 screens → 7 663 characters**, with all eleven worked examples in the
+outline. The same file through `video_storyboard` takes 163 s and returns one
+1 024-token sheet whose slide text is unreadable. A 15-minute window reads in
+**16 s**; a 36-second clip in **1.3 s**.
 
 | argument | meaning |
 | --- | --- |
 | `input` | file path, or a direct `http(s)` URL that ffmpeg can fetch |
 | `start` / `end` | read one window only |
 | `maxScreens` | cap on distinct screens read, 3–400 (default 400) |
+| `out` | write the result: `.srt`/`.vtt` subtitle file, other extensions `[mm:ss]` text |
+| `transcriptFile` | SRT/VTT/JSON you already have — tried before the engine, and the only way in for an audio-only file with no engine |
 
-Needs an OCR engine. The Windows one is built in (no download, no model);
-elsewhere the tool says so and you fall back to `video_storyboard`.
+Needs an OCR engine, and uses whichever it finds: the Windows one (built in, no
+download, no model), `tesseract` on `PATH` anywhere, or `DSH_OCR_CMD` pointing
+at an engine of your own (one image path in, lines out). `DSH_OCR_BACKEND` is
+`windows` · `tesseract` · `off`, and `DSH_OCR_LANG` passes `-l` to
+tesseract. With no engine at all the tool says so instead of pretending.
 
 ---
 
@@ -293,6 +385,24 @@ behaviour with `DSH_BILIBILI_STREAM=1` (never download) or `=0` (always download
 Measured on a 57-second clip: storyboard 5.7 s streamed vs 1.9 s cached, `video_read`
 8.3 s and 2 161 characters — and nothing written to disk.
 
+**The playurl is cached in memory for ten minutes** (`DSH_BILIBILI_PLAY_TTL_MS`,
+default 600 000). Asking probe, then storyboard, then read about one B站 file
+otherwise resolves the same signed link three times; each answer stays valid for
+hours, so the cache is keyed on
+`bvid|cid|maxHeight|auth` and a hit is reported as `cached: true`.
+
+**And the download cache has a budget**: `DSH_BILIBILI_CACHE_MB` (default 4096) and
+`DSH_BILIBILI_CACHE_MAX` (default 24 videos). Least recently used goes first, the
+file being written is never evicted, and each video's `.mp4`/`.json`/`.srt` leave
+together.
+
+**A link that is not one video gets the reason, not "unsupported":** a `bangumi/play/ep`
+or `ss` link says which episode or season it is and that a p-segment of a season is
+what this reads; `bangumi/media/md` is a whole work; a live room has no ending to
+sample; a space or `/list/` link is a collection, so the answer names the collection
+and asks for one video; `opus`/`read`/`t.bilibili.com` is a picture post with no
+video in it.
+
 ### Speech, when you have an engine
 
 `video_storyboard` and `video_read` can quote what is being **said** as well as
@@ -306,6 +416,22 @@ The window's audio is extracted once (16 kHz mono), your command runs, and the S
 it writes to `{out}` — or prints on stdout — is parsed. Each line is quoted on the
 cell that contains its midpoint, so nothing is repeated. A subtitle track, when
 present, always wins: it was captioned by a human and costs no decode.
+
+**Long audio is cut into chunks first.** Handing a recogniser one 230 MB hour-long
+wav is how you get an OOM instead of a transcript, so a window longer than
+`DSH_ASR_CHUNK_SECONDS` (45) is split: one decode pass only listens for pauses,
+then each 45 s aim is walked back to the last silence midpoint at least
+`DSH_ASR_CHUNK_MIN` (12 s) into the chunk, so a cut lands in a pause and not in a
+word. A sliver at the end folds into the chunk before it. Chunks are extracted and
+transcribed `DSH_ASR_PARALLEL` at a time (2), timestamps are shifted back per
+chunk so a line's time is the file's time, and a line repeated on both sides of a
+cut is merged once. Pause thresholds are `DSH_ASR_SILENCE_DB` (−32 dB) and
+`DSH_ASR_SILENCE_MIN` (0.35 s); `DSH_ASR_CHUNK_SECONDS=0` turns chunking off for an
+engine that wants the whole file.
+
+A chunk that fails does not take the transcript with it: the rest is kept and the
+returned reason says how many and where — `1 of 3 audio chunk(s) failed — chunk at
+01:30: …`.
 
 No engine is bundled, deliberately. This package is 600 KB of code with zero
 dependencies, and the accuracy lives in the model (tiny 75 MB, small 484 MB,
@@ -375,13 +501,17 @@ a download plus a recogniser to re-derive them would be silly.
 
 - **No bundled ASR.** Speech is transcribed only when the file carries a subtitle
   track or when you point `DSH_ASR_CMD` at an engine (above). With neither, you
-  still get the audio summary: speech share, loudness, silences, onsets.
-  `video_read` does OCR, but only with the Windows built-in engine behind
-  `Windows.Media.Ocr`: on Linux and macOS it reports that it is unavailable instead
-  of pretending. No model download, no API key.
+  still get the audio summary: speech share, loudness, silences, onsets. Long
+  windows are chunked, but the model is yours: this package never downloads one.
+- **OCR needs one of three engines.** The Windows one (`Windows.Media.Ocr`) is
+  built in; `tesseract` on `PATH` is used on Linux and macOS; `DSH_OCR_CMD` points at
+  anything else that takes one image and prints lines. With none of the three the
+  tool says so — `DSH_OCR_BACKEND=off` forces that answer, and `video_outline` or
+  `video_storyboard` still work because neither reads text.
 - **B站 only, and only what it hands out without an account.** A B站 link is
   resolved through the public endpoints, which means 720P unless you supply a
-  cookie; there is no `yt-dlp`, so other sites still have to be downloaded first.
+  cookie (`DSH_BILIBILI_COOKIE`); there is no `yt-dlp`, so other sites still have
+  to be downloaded first.
   Paywalled and members-only parts are not readable.
 - **Cuts are detected, not understood.** A whip pan and a cut can look alike in
   a 96x54 grid; the classifier prefers "not a cut" when the change is local.
@@ -392,24 +522,31 @@ a download plus a recogniser to re-derive them would be silly.
 ## Layout
 
 ```
-src/index.js     plugin entry: registers the three tools, resolves binaries
+src/index.js     plugin entry: registers the five tools, resolves binaries
 src/tools.js     tool specs (descriptions are prompt-cached, so they are short)
 src/pipeline.js  orchestration + analysis cache
-src/scan.js      one-pass decode, cut/overlay/light/flash/dissolve detection
-src/layout.js    shot building, cell budget, grid geometry, token math
+src/scan.js      one-pass decode (or keyframes only), cut/overlay/light/flash/dissolve
+src/layout.js    shot building, cell budget, legibility rail, grid geometry, token math
+src/detail.js    how much of a picture survives the trip into a cell (pure arithmetic)
 src/frames.js    batched frame extraction
 src/sheet.js     contact-sheet compositor (no image library, raw RGB)
 src/png.js       PNG encoder (zlib)
 src/manifest.js  the text index
+src/outline.js   the text-only map of a file: windows, cuts, speech, no decode of pixels
+src/read.js      the text document: screen clustering, furniture, export, no-picture path
+src/ocr.js       three OCR backends behind one interface
+src/asr.js       chunking, silence-aware cuts, the recogniser hook
+src/transcript.js transcript files (SRT/VTT/JSON) as cues
 src/timeline.js  audio envelope, speech spans, subtitle extraction
 src/media.js     ffmpeg/ffprobe discovery, probing, process helpers
+src/bili.js      B站 link -> playable URL -> cached file, with a refusal per link kind
 
 docs/EVIDENCE.md     measured behaviour, with the scripts that produced it
 docs/DESIGN.md       why each threshold exists; mechanisms that were rejected
 docs/REAL-WORLD.md   three untouched screen captures, inspected by eye
 docs/TOKENS.md       how DeepSeek prices an image, and what the grid size costs
 bench/               the corpus, its generator, and every script that made a number
-test/                161 unit tests, no network, hermetic temp dirs
+test/                314 unit tests, no network, hermetic temp dirs
 ```
 
 ---

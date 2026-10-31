@@ -8,6 +8,7 @@ import {
   blockStats,
   classifyJump,
   summarizeShots,
+  keyframeMode,
 } from '../src/scan.js';
 
 const BW = 4;
@@ -244,4 +245,21 @@ test('the cut detector assumes a 12x7 block grid', () => {
   assert.equal(SCAN_DEFAULTS.blockRows, 7);
   assert.equal(SCAN_DEFAULTS.blockDelta, 14);
   assert.equal(SCAN_DEFAULTS.activeLuma, 12);
+});
+test('the keyframe pass is taken only when there is something to skip', () => {
+  // an explicit choice is obeyed whatever the measurement says
+  assert.equal(keyframeMode({ asked: 'off', duration: 7200, gap: 5 }).keyframes, false);
+  assert.equal(keyframeMode({ asked: 'force', duration: 20, gap: null }).keyframes, true);
+  // a short window is cheap to decode fully and loses accuracy otherwise
+  assert.equal(keyframeMode({ duration: 120, gap: 5 }).keyframes, false);
+  // keyframes a fraction of a second apart leave nothing to skip
+  assert.equal(keyframeMode({ duration: 7200, gap: 0.4 }).keyframes, false);
+  // an unmeasurable file is not guessed at: it decodes every frame
+  assert.equal(keyframeMode({ duration: 7200, gap: null }).keyframes, false);
+  // and the case the pass exists for
+  const long = keyframeMode({ duration: 7200, gap: 4.9 });
+  assert.equal(long.keyframes, true);
+  assert.match(long.reason, /4\.9 s/);
+  // a measured gap of exactly the floor is already worth skipping
+  assert.equal(keyframeMode({ duration: 7200, gap: 1 }).keyframes, true);
 });

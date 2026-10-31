@@ -386,15 +386,18 @@ The judgement calls, in the order they failed on real files:
    eight-to-ten invented characters in a row --- long enough to pass a length
    test, useless as a quote. Real text arrives with punctuation, a decimal point,
    a bracket or an `=`.
-4. **Under three readable screens, quote nothing.** Two fragments of strokes are
-   not a reading; the result says what was probably going on and points at
-   `video_storyboard`.
+4. **Under three readable screens, quote nothing — but do not return nothing.**
+   Two fragments of strokes are not a reading, so the result says what was
+   probably going on; and because the caller asked for a file and got no
+   document, it now also returns six changed frames composed into one sheet. The
+   honest answer to "there is no text here" is the pictures that are there.
 
-Cost of a 2-hour lecture: **91 s** wall clock (scan 11 s, grab 39 s, OCR 40 s),
-56 screens, 7 588 characters, plus an outline that finds all eleven worked
-examples. A 36-second text-card clip is 1.1 s. Against the storyboard path on the
-same lecture (163 s, one 1 024-token image, text unreadable at that size) this is
-the cheaper and more useful answer whenever the content is text on screen.
+Cost of a 2-hour lecture: **87 s** wall clock (the instrumented run split it as
+11 s scan, 39 s grab, 40 s OCR), 53 screens, 7 663 characters, plus an outline
+that finds all eleven worked examples. A 36-second text-card clip is 1.1 s.
+Against the storyboard path on the same lecture (163 s, one 1 024-token image,
+text unreadable at that size) this is the cheaper and more useful answer whenever
+the content is text on screen.
 
 ## 10. Why speech-to-text is a hook and not a feature
 
@@ -500,3 +503,164 @@ Three decisions worth recording:
 Measured: 5 cells of a 1440P lecture at 7.02x, all flagged; 28 cells of a 720P
 music video at 3.87x, 27 flagged (the one of pure sky is not); the 720P corpus at
 3.2x flags nothing, and the decode path there is byte-for-byte the old one.
+
+## 13. A map of the file that draws nothing
+
+Every question about a long video arrives before anybody knows which minute matters.
+A contact sheet answers "what does this look like", and it answers it for one window at
+1024 tokens; asked about two hours, that is the wrong shape of answer twice: too expensive
+to run broadly, and it still does not say *where* to look.
+
+`video_outline` is that first question answered in rows. The file is cut into equal
+windows (4–60, default 24), each row prints the window's span, its cut count, the share of
+it that is speech, an eight-slice intensity bar and at most two tags — `dark`, `static`,
+`quiet`, `busy`, `talk` — and the tail of the answer names the windows worth opening with
+the exact `start`/`end` to open them with:
+
+```
+dsh-video-vision-promo.mp4 · 00:57 · 13 cuts · speech 97% · 8 windows of 00:07
+   4  00:21-00:28  ████████  cuts 3  speech 100%  busy talk
+watch first: 4 (00:21-00:28, 3 cuts, speech 100%) · 2 (00:07-00:14, 2 cuts, speech 100%)
+next: video_storyboard start=21 end=28 for the pictures, video_read start=21 end=28 for the words
+```
+
+Measured: 1.9 s for that 57-second clip, 2.6 s for a 70-second gameplay capture
+(24 cuts in 8 windows), 0.9 s for a 40-second corpus clip. **Zero vision tokens** — not
+"few", zero, because no frame is composited and no image is attached.
+
+Four decisions:
+
+- **Equal windows, not shots.** A shot list of a lecture is one row ("00:00–1:59:54"), which
+  is true and useless. Equal windows guarantee the answer covers the file and that every
+  row is comparable with every other row.
+- **The bar is arithmetic on what the scan already computed.** Cuts, motion, speech share
+  and loud events are all in the single analysis pass that the storyboard would run anyway,
+  so the map costs one pass and nothing else. It is not a second decoder.
+- **Ranking is cuts first, speech second.** "Which minute is busy" is mostly "which minute
+  has new pictures"; speech breaks ties, which is why a talking-head segment with no cutting
+  still surfaces. The order is fixed and printed, not a score the reader has to trust.
+- **The answer ends with the next call.** A map that does not say `start=21 end=28` leaves
+  the client to convert timecodes into arguments, and it will get that arithmetic wrong.
+
+## 14. When there is no picture to look at
+
+Two files break the assumption that a video is pictures: one has none at all, and one has
+only pictures that a recogniser cannot read.
+
+**Sound without a picture.** An mp3, m4a or wav used to fail inside the probe with
+"no video stream" — correct, and useless. `video_read` now probes first and, if the stream
+list has audio but no video, reads the file as a transcript: the container's subtitle track
+first, then `DSH_ASR_CMD`, then a `transcriptFile` the caller already has. With none of the
+three it refuses with all three ways out in one sentence, naming the codec and duration so
+the caller knows the file was understood. `video_probe` returns the same metadata with
+`plan: null`, and the two picture tools say "there is no picture to sample; `video_read`
+transcribes audio" rather than failing on a frame that will never arrive. The document is
+the same shape as a lecture reading — `[mm:ss] text` lines, a note that says this is speech
+and not screen, and `out` writes SRT or VTT.
+
+**Pictures that are not text.** A camera pointed at a whiteboard, handwriting, a capture of
+a game whose only "text" is a chat overlay: OCR returns stubs, the furniture filter removes
+the rest, and the old answer was an empty document plus advice to call `video_storyboard`.
+That is two round trips to arrive at "there is no text here". Now, when zero usable screens
+remain, the six most-changed frames are decoded and composed into **one sheet** and returned
+as images, with a note that these are the evidence the file carries. The rule is unchanged
+about *what* counts as text — the fallback changes only what is done with the answer "none".
+
+Measured on a synthetic 480x270 colour-bar clip with no text: six cells, one PNG, and a
+document that says `no readable text` instead of an empty one. The path this was built for
+is a real screen capture whose chat panel OCR'd into 37 screens of two-character stubs —
+that file still goes down the text path, because its "text" is garbage, not absent; the
+fallback is for files with no text at all.
+
+## 15. A cell is never a smear
+
+`auto` used to fill a 1.76 Mpx sheet with 28 cells whatever the source was. The budget is
+right — a bigger sheet would cost more tokens, and tokens are the thing to conserve — but
+the arithmetic ignored what the sheet is *made of*: 28 cells of a 1440P source are 188 px
+tall, one seventh of the source height, and no amount of budget fixes a cell that no longer
+resolves a line of text.
+
+The rail is one sentence of arithmetic: **no cell smaller than a fifth of the source
+height**. Cells are laid out on a grid, so the cell height fixes the count, and the count
+fixes the sheet's pixels; the sheet keeps its token budget and spends it on fewer, larger
+cells:
+
+| source | cells | sheet | cell height | vision tokens |
+|---|---|---|---|---|
+| 720p | 28 | 1334x1319 | 188 | 1 024 |
+| 1080p | 21 | 1441x1221 | 204 | 1 024 |
+| 1440p | 11 | 1468x1105 | 276 | 974 |
+| 2160p | 5 | 1400x1185 | 395 | 1 017 |
+
+Three things worth recording:
+
+- **A fifth, not a half.** At half the source height a 1440P sheet holds two cells; the
+  sheet stops being a sheet. At a fifth the smallest text that was legible in the source
+  survives, and 4K still gets five moments rather than one.
+- **It reports itself.** When the rail binds, the result says `sheet reduced from N to M
+  cells so text stays legible`, because a silent clamp reads exactly like a sheet that was
+  always planned that way.
+- **An explicit `cells` argument still wins.** The rail is a default, not a ceiling: asking
+  for 24 cells from a 4K file is a decision, and it is honoured without a note.
+
+The corpus is 720p, so the rail does not touch the measured numbers: same 67 cells, same
+3648 tokens, same sheet bytes.
+
+## 16. Ten minutes in, read the keyframes
+
+Cut detection wants every frame; a long file does not have the budget for that. Above ten
+minutes, when keyframes are at least a second apart, the analysis pass decodes **keyframes
+only** (`-skip_frame nokey`) and treats each keyframe as standing for its interval. Measured
+on the two-hour lecture: **2.7× faster** for the analysis pass, with the same storyboard
+plan.
+
+Two guards, both from failure modes:
+
+- **Short windows decode fully.** Below 600 s the picture changes faster than the keyframe
+  interval — a 95-second clip has ~20 keyframes but ~80 real changes — so the dense path is
+  kept and only long files take the fast one.
+- **Dense keyframes are not worth skipping.** If the measured keyframe gap is under 1 s,
+  decoding keyframes saves nothing and costs accuracy; the full decode runs.
+
+The result says which pass produced it, prints the measured gap, and names the knob
+(`DSH_SCAN_KEYFRAMES=off` to force the full decode, `=force` to force keyframes). A change
+shorter than the gap is invisible in keyframe mode, and that is a real limitation of a real
+speedup, so it is stated in the answer rather than hidden in a doc.
+
+## 17. Engines and links are somebody else's problem, until they are not
+
+Three things this plugin refuses to own — the OCR engine, the recogniser, the video site —
+and what it does instead when they are missing.
+
+**OCR: three backends behind one interface.** `Windows.Media.Ocr` is built in and needs no
+download, which is why it was the only backend for a year. It is also Windows-only, so a
+Linux host got a refusal for a job that `tesseract` could do. `ocrBackend()` now answers
+with one of three: the Windows engine, `tesseract` from `PATH` (TSV output keeps the line
+boxes the furniture filter needs), or whatever `DSH_OCR_CMD` points at. All three return
+the same shape — text plus line boxes plus image size — because everything downstream
+depends on boxes, not on the engine. `DSH_OCR_BACKEND` pins or disables one
+(`windows`/`tesseract`/`off`), and `DSH_OCR_LANG` passes `-l` through. With no engine the
+tool still says so, in one sentence that names all three ways to get one.
+
+**ASR: the chunking is the client's job.** Handing a recogniser one 230 MB hour-long wav
+is how a two-hour lecture turns into an OOM. Windows longer than 45 s are therefore cut
+before the engine sees them: one decode pass listens for pauses, each 45 s aim is walked
+back to the last silence midpoint at least 12 s into the chunk so a cut lands in a pause
+rather than in a word, a sliver at the end folds into the chunk before it, and chunks are
+transcribed two at a time. Timestamps are shifted back per chunk so a cue's time is the
+file's time, and a line repeated on both sides of a cut is merged once. A failed chunk does
+not lose the rest of the transcript: the survivors are kept and the reason says how many
+and where. All of it is environment-tunable (`DSH_ASR_CHUNK_SECONDS`, `_CHUNK_MIN`,
+`_PARALLEL`, `_SILENCE_DB`, `_SILENCE_MIN`); `DSH_ASR_CHUNK_SECONDS=0` turns it off for an
+engine that wants the whole file.
+
+**B站: cached playurls, a bounded disk, and a reason per link kind.** The playurl exchange
+is the slow part and its answer is a signed URL valid for hours, so it is cached in memory
+for ten minutes (`DSH_BILIBILI_PLAY_TTL_MS`) keyed on `bvid|cid|maxHeight|auth` — six
+tools over one file otherwise ask six times. Downloads live under the DSH home and are
+pruned to a budget (`DSH_BILIBILI_CACHE_MB`, default 4096; `DSH_BILIBILI_CACHE_MAX`,
+default 24 videos) by least-recent use, never evicting the file being written. And a link
+that is not one video is refused with what it is: an episode or season of a 番剧 (with the
+episode number), a whole work (`md`), a live room with no ending, a collection that has to
+be pointed at one video, or a picture post with no video in it. "Unsupported" after a
+download attempt tells the caller nothing they can act on.

@@ -1,5 +1,5 @@
 /**
- * tools.js — the three tool specs.
+ * tools.js — the tool specs.
  *
  * These descriptions live in the system prompt, so they are paid on *every*
  * request. That is why the reading instructions live here instead of in the
@@ -13,6 +13,7 @@ export const PROBE_TOOL = 'video_probe';
 export const STORYBOARD_TOOL = 'video_storyboard';
 export const ZOOM_TOOL = 'video_zoom';
 export const READ_TOOL = 'video_read';
+export const OUTLINE_TOOL = 'video_outline';
 
 const INPUT_DESC = 'A video: a file path (absolute, or relative to the working directory), a direct http(s) URL '
   + 'to a media file that ffmpeg can fetch, or a B站 link (bilibili.com/video/BV…, a bare BV id, an av id, or a b23.tv '
@@ -24,7 +25,9 @@ const INPUT_DESC = 'A video: a file path (absolute, or relative to the working d
 const ASR_NOTE = `
   Speech: a subtitle track is quoted when the file has one. Without one, point
   DSH_ASR_CMD at an engine that turns {wav} into an SRT at {out} and the same
-  lines are quoted from speech.`;
+  lines are quoted from speech. Long audio is cut on silence into
+  DSH_ASR_CHUNK_SECONDS pieces (default 45) and transcribed in parallel, so a
+  two-hour lecture works with an engine that only wants short files.`;
 
 const BILI_NOTE = [
   '',
@@ -136,6 +139,15 @@ export function storyboardSpec(ctx) {
           enum: ['sharp', 'middle'],
           description: 'Which frame inside a shot becomes its cell. `sharp` (default) takes the crispest moment, '
             + 'which avoids motion-blurred and mid-transition frames.',
+        },
+        dedupe: {
+          type: 'string',
+          enum: ['shots', 'global'],
+          description: 'Which pictures are allowed to repeat. `shots` (default) folds repeats inside one shot but '
+            + 'keeps a picture that comes back after a cut — a slide deck that reopens slide 1 usually keeps '
+            + 'talking while it is up, so that second cell carries its own narration. `global` folds those too: '
+            + 'the shot is then listed in the cell index against the cell that shows the same picture, so the '
+            + 'sheet spends its budget on pictures it does not already have.',
         },
         transcriptFile: {
           type: 'string',
@@ -251,8 +263,20 @@ export function readSpec(ctx) {
       '',
       'The trade: it reads TEXT, so it is blind to faces, motion, colour, composition and audio. For',
       'gameplay, film, sport, anything where the picture *is* the content, use video_storyboard.',
-      'Requires an OCR engine (the Windows one is built in); elsewhere this tool says so and you should',
-      'fall back to video_storyboard.',
+      'Needs an OCR engine: the Windows one is built in, `tesseract` on PATH is used elsewhere, and',
+      'DSH_OCR_CMD can point at any command of your own. With no engine this tool says so — then use',
+      'video_storyboard, or video_read with transcriptFile.',
+      '',
+      'A file with sound and no picture (mp3, m4a, a wav) is read as a transcript instead: a subtitle track',
+      'if the container has one, DSH_ASR_CMD if it is configured, or the transcriptFile you pass.',
+      '',
+      'A video whose information is a picture rather than words — handwriting, a camera pointed at a screen,',
+      'a whiteboard with no headings — has no text to quote. Instead of an empty document it returns a few',
+      'frames as one image, with the note saying so; use video_storyboard if you want the cut index too.',
+      '',
+      'Pass `out` to keep the result as a file: `.srt` or `.vtt` writes subtitles, anything else',
+      'writes one `[mm:ss] text` line per screen (or per cue, for an audio file). The document says',
+      'where it went; the text is still returned, so nothing is lost by exporting.',
       '',
       'Repeats are cached: asking again for the same file and window costs only the wait.',
       ].join('\n') + BILI_NOTE + ASR_NOTE,
@@ -267,6 +291,19 @@ export function readSpec(ctx) {
           type: 'number',
           description: 'Cap on distinct screens read, 3-400 (default 400). Lower it for a quick skim.',
         },
+        transcriptFile: {
+          type: 'string',
+          description: 'Path to a transcript you already have (SRT, VTT, or JSON [{start,end,text}]). '
+            + 'On an audio-only file this is what is read when no ASR engine is configured; on a video it '
+            + 'is quoted before the subtitle track and before speech recognition.',
+        },
+        out: {
+          type: 'string',
+          description: 'Write the read result to this path. Extension decides the shape: .srt or .vtt is a '
+            + 'subtitle file (one cue per screen, timed by the screen span), any other extension is plain '
+            + '[mm:ss] text lines. Parent directories are created. Applies to video and audio reads; an '
+            + 'export with nothing to write says so instead of creating an empty file.',
+        },
       },
       required: ['input'],
       additionalProperties: false,
@@ -276,11 +313,15 @@ export function readSpec(ctx) {
         type: 'object',
         additionalProperties: true,
         properties: {
-          text: { type: 'string', description: 'Timestamped transcript of everything on screen, plus an outline.' },
+          text: { type: 'string', description: 'Timestamped transcript of everything on screen, plus an outline; the last note says where an `out` export went.' },
+          images: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'Pictures instead of text, when the file carried none (0 or 1).' },
         },
       },
       render(args, value) {
-        return [{ type: 'text', text: value.text }];
+        const blocks = [];
+        for (const attachment of value.images || []) blocks.push({ type: 'image', attachment });
+        blocks.push({ type: 'text', text: value.text });
+        return blocks;
       },
     },
     timeoutMs: 600_000,
@@ -292,3 +333,65 @@ export function readSpec(ctx) {
     },
   };
 }
+
+/**
+ * The navigation pass. Its whole reason to exist is that the other three tools
+ * answer a question and this one answers "which question is worth asking".
+ */
+export function outlineSpec(ctx) {
+  return {
+    name: OUTLINE_TOOL,
+    description: [
+      'Read a whole video as a text map before spending picture tokens on it: the file is cut into equal',
+      'windows (24 by default) and each row carries the cuts in it, the share of it that is speech, a bar',
+      'drawn from the same numbers, and tags (busy / talk / static / quiet / dark). Nothing is rendered, so',
+      'the call costs no vision tokens — it is the cheap first move on a file you know nothing about: a',
+      'two-hour lesson, a recording, a gameplay clip.',
+      '',
+      'Read it as: rows in time order, `watch first:` the windows that carry the most, and `next:` the exact',
+      'call that opens one. Then spend the budget where it matters — video_storyboard for a window that',
+      'must be seen, video_read for the words in it.',
+      '',
+      'It is a summary, not the content: a window that scores low can still be the one you want (a title',
+      'card is static and quiet), so treat `watch first` as a starting order, not a ranking of importance.',
+    ].join('\n') + BILI_NOTE,
+
+    parameters: {
+      type: 'object',
+      properties: {
+        input: { type: 'string', description: INPUT_DESC },
+        windows: {
+          type: 'number',
+          description: 'How many equal windows to cut the file into, 4-60 (default 24). A 2-hour file at 24 '
+            + 'windows gives 5-minute rows; more windows put the map on a finer grid.',
+        },
+        top: {
+          type: 'number',
+          description: 'How many windows to name in `watch first`, 1-8 (default 3).',
+        },
+      },
+      required: ['input'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          text: { type: 'string', description: 'One line per window, the windows worth opening first, and the exact call that opens one.' },
+        },
+      },
+      render(args, value) {
+        return [{ type: 'text', text: value.text }];
+      },
+    },
+    timeoutMs: 900_000,
+    isConcurrencySafe: () => true,
+    presentCall: (args) => ({ card: 'generic', title: 'outline video', kind: 'read', rawInput: args }),
+    async execute(args, exec) {
+      if (!args?.input) throw new Error('input is required');
+      return ctx.outline(args, exec);
+    },
+  };
+}
+

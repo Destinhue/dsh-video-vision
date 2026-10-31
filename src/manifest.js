@@ -68,6 +68,9 @@ export function formatManifest(p) {
   if (scan.degraded) {
     out.push(`note: ${DEGRADED[scan.degraded] ?? scan.degraded}`);
   }
+  // What a request asked for and did not get (a window past the end, a cell
+  // count over the cap). Silent clamping is indistinguishable from a short file.
+  for (const n of p.notes ?? []) out.push(`note: ${n}`);
 
   let chars = out.join('\n').length;
   let truncated = false;
@@ -121,6 +124,7 @@ export function formatManifest(p) {
     // filter look like a silent recogniser.
     if (transcript.dropped) bits.push(`${transcript.dropped} suspect line(s) dropped`);
     if (transcript.terms) bits.push(`${transcript.terms} term(s) fixed`);
+    if (transcript.chunked) bits.push(`${transcript.chunks} chunk(s) cut on silence`);
     extra.push(bits.join(' · '));
   } else if (p.asrNote) {
     // A configured engine that failed must say so; silence reads as "no speech".

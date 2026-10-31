@@ -1,5 +1,101 @@
 # Changelog
 
+## 1.4.0
+
+### Added — two tools that answer without a picture
+
+- **`video_outline` maps a whole file as text and draws nothing.** The file is
+  cut into 4–60 equal windows; each row carries the cut count, the speech share,
+  an eight-character intensity bar and up to two tags (`dark`, `static`,
+  `quiet`, `busy`, `talk`), then `watch first:` ranks the windows worth
+  opening and `next:` gives the exact `start`/`end` for `video_storyboard`
+  or `video_read`. Cost: **zero vision tokens** — this is the call to make
+  before spending 1 024 on a sheet. 40 s clip: 0.9 s, 8 windows. 70 s gameplay
+  clip: 2.6 s, 24 cuts, 8 windows. Long files reuse the keyframe pass below.
+- **`video_read` reads a file with sound and no picture.** An mp3, m4a or wav is
+  now a transcript: the container's subtitle track first, then `DSH_ASR_CMD`,
+  then the `transcriptFile` you pass. With none of the three it refuses with a
+  sentence that names all three. `video_probe` on such a file reports the codec
+  and returns `plan: null`; `video_storyboard`/`video_zoom` fail with
+  "there is no picture to sample; video_read transcribes audio" instead of a
+  generic decode error.
+- **`video_read` returns pictures when the file has no readable text.**
+  Handwriting, a phone pointed at a screen instead of a capture, a whiteboard: a
+  fixed number of changed frames is decoded and composed into a **six-cell**
+  sheet, and the text says these are pictures, not words. Zero screens used to
+  mean an empty document and "call video_storyboard yourself".
+- **`video_read` writes the result out** (`out`): `.srt`/`.vtt` are subtitle
+  files, any other extension is `[mm:ss] text` lines, parent directories are
+  created, and the last line reports the path and the count.
+- **`video_storyboard` takes `dedupe:"global"`.** Repeats are folded inside a
+  shot by default; `global` folds them across cuts too, and the shot that comes
+  back to a picture already on the sheet is listed against that cell instead of
+  spending a new one. The note says how many were dropped and how to keep them.
+- **B站 play URLs are cached** for 10 minutes (`DSH_BILIBILI_PLAY_TTL_MS`) —
+  probe, storyboard and read of the same clip no longer re-resolve the signed
+  CDN link — and the **download cache has a budget**: 4 GB / 24 videos by
+  default (`DSH_BILIBILI_CACHE_MB`, `DSH_BILIBILI_CACHE_MAX`), evicted by last
+  use, never the file being read.
+- **OCR works away from Windows.** `tesseract` on `PATH` is used wherever it
+  is found, in TSV mode so line boxes survive; the words in a line are joined
+  without spaces between CJK characters and with them between Latin words, and
+  lines are ordered by reading position. `DSH_OCR_CMD` points at any other
+  engine (one image path in, lines out); `DSH_OCR_BACKEND=off` disables OCR,
+  `=tesseract` skips the Windows engine, `DSH_OCR_LANG` selects a model.
+- **Long audio is transcribed in pieces.** Two hours of 16 kHz mono wav is
+  230 MB and most engines truncate or die on it: the audio is now cut at a 45 s
+  target, each cut moved onto the nearest silence midpoint (so a word is never
+  split), a 12 s floor, two chunks in flight. All five knobs are environment
+  variables (`DSH_ASR_CHUNK_SECONDS`, `_CHUNK_MIN`, `_PARALLEL`,
+  `_SILENCE_DB`, `_SILENCE_MIN`); `0` seconds turns chunking off.
+
+### Changed
+
+- **Silent clamps now report themselves.** `maxScreens`, `start`/`end`,
+  `duration`, `cells` (24 for a sheet, 9 for a zoom) are still clamped, but the
+  result carries a `note:` line saying what was asked, what was used and what to
+  pass instead. A window that starts past the end of the file is an error with
+  the real duration in it, not an empty answer.
+- **A cell is never smaller than a fifth of the source.** `auto` used to give
+  every file 28 cells in a 1.76 Mpx sheet, so a 1440p sheet was 22 cells of
+  302 px and 4K was 28 smears. The sheet now keeps its budget and spends it on
+  fewer, bigger cells: 720p **28 → 28**, 1080p **28 → 21**, 1440p **28 → 11**,
+  4K **28 → 5**, at the same ~1 024 tokens, and says
+  `sheet reduced from N to M cells so text stays legible`.
+- **A long file is analysed on its keyframes.** From ten minutes up, when
+  keyframes are at least a second apart, the analysis pass decodes keyframes only
+  — **2.7× faster on the two-hour lecture** — and the note says what a change
+  shorter than that gap would hide, plus `DSH_SCAN_KEYFRAMES=off` to undo it.
+- **B站 links that are not a single video say why.** A bangumi episode or series,
+  a media page, a live room, a space list/collection, a `/list/` page and
+  `opus`/`read`/t.bilibili text posts each get their own sentence instead of
+  "can not understand this link".
+
+### Measured
+
+- The corpus is untouched by all of the above: 9 clips, **67 cells**,
+  **3 648 vision tokens** (54.45 per cell), micro cut P 0.774 / R 1.000 /
+  F1 0.872, mean clip F1 0.667, shot coverage 0.963, sheet PNG 152 677 B,
+  manifest 477 chars.
+- `video_outline` on `A_hardcuts_720p.mp4`: 0.94 s, 8 windows, 9 cuts,
+  no image, no vision tokens. On a 70 s gameplay recording: 2.6 s, 8 windows,
+  24 cuts of which 6 land in one window.
+- The downscale rail at `detail:"auto"`, 16:9: 720p 28 cells, 1080p 21,
+  1440p 11, 4K 5 — a 1440p sheet grows from 1.01 Mpx to 1.62 Mpx so its cells
+  are 288 px tall, 1/5 of the source instead of 1/8.
+- Audio-only probe and read on `talk.wav` (3 s sine): probe 5 lines with the
+  codec and `plan: null`; read with a `transcriptFile` produces
+  `# talk.wav — read as text · audio only · 2 lines · 00:03`.
+
+### Tests
+
+**314** (was 237): notes for every clamp, the `dedupe:"global"` fold, keyframe
+mode, audio-only probe/read/probe-refusal, the six-picture fallback, SRT/VTT/text
+export, the tesseract TSV parser and reading order, CJK word joining, ASR chunk
+planning and silence points, the whole `video_outline` path on a real clip, and
+the plugin registering five tools. 312 pass, 2 skip on a host without a second
+ffprobe or tesseract. `bin/selfcheck.mjs --smoke --host`: 40/40.
+
 ## 1.3.4
 
 ### Added

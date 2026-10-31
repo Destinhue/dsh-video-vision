@@ -1,7 +1,7 @@
 {
   "name": "dsh-video-vision",
-  "version": "1.3.4",
-  "description": "Look at a video, not a summary of it: one addressable storyboard grid per view, tuned for deepseek-v4.1-flash vision — adaptive cell resolution, content-aware layout, frame-level scene detection and a token-tight index.",
+  "version": "1.4.0",
+  "description": "Look at a video, not a summary of it: one addressable storyboard grid per view, tuned for deepseek-v4.1-flash vision — adaptive cell resolution, content-aware layout, frame-level scene detection and a token-tight index. Reads a lecture as a timestamped text document, maps a whole file as text with no image at all, and turns an audio-only file into a transcript.",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -25,7 +25,11 @@
     "./sheet": "./src/sheet.js",
     "./media": "./src/media.js",
     "./pipeline": "./src/pipeline.js",
-    "./manifest": "./src/manifest.js"
+    "./manifest": "./src/manifest.js",
+    "./outline": "./src/outline.js",
+    "./read": "./src/read.js",
+    "./ocr": "./src/ocr.js",
+    "./asr": "./src/asr.js"
   },
   "files": [
     "src",

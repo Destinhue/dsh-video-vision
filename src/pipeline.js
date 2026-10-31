@@ -17,8 +17,11 @@
  */
 
 import { run, probeVideo, findFfmpeg, findFfprobe, displayAspect, uprightSize } from './media.js';
-import { scanShots } from './scan.js';
-import { planCells, planGrid, cellReadability, sheetPixelsFor, DETAIL_PRESETS, suggestDetail, bestFrameIndex } from './layout.js';
+import { keyframeGap, keyframeMode, scanShots } from './scan.js';
+import {
+  planCells, planGrid, cellReadability, sheetPixelsFor, sheetPixelsForCells,
+  DETAIL_PRESETS, suggestDetail, bestFrameIndex,
+} from './layout.js';
 import { extractCells, extractFrame } from './frames.js';
 import { cellScale, zoomMarkers, ZOOM_MIN_SCALE } from './detail.js';
 import { composeSheet } from './sheet.js';
@@ -26,8 +29,9 @@ import { encodePng } from './png.js';
 import { analyzeAudio, extractSubtitles, groupCues, snapCellsToSpeech, timecode } from './timeline.js';
 import { formatManifest } from './manifest.js';
 import { loadTranscriptFile } from './transcript.js';
+import { planOutline, outlineRows, outlineReport, spanOverlap } from './outline.js';
 import { asrAvailable, asrCues, loadAsrSettings } from './asr.js';
-import { isBilibili, bilibiliFile, bilibiliStream, biliStreamMode, biliStreamLimit, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
+import { isBilibili, bilibiliRejection, bilibiliFile, bilibiliStream, biliStreamMode, biliStreamLimit, bilibiliView, bilibiliPlay, bilibiliSubtitles, describeBilibili } from './bili.js';
 
 export { DETAIL_PRESETS };
 export { biliStreamMode, biliStreamLimit };
@@ -40,7 +44,14 @@ const MAX_CELLS_HARD = 24;
  * is should cost one HTTP request, not a hundred megabytes.
  */
 async function resolveSource(rawInput, { ffmpegPath, signal, log } = {}) {
-  if (!isBilibili(rawInput)) return { path: rawInput, meta: null, download: null, stream: false };
+  if (!isBilibili(rawInput)) {
+    // A B站 page that is not one video (an episode, a collection, a live room)
+    // would otherwise fall through to the file path and be reported as a
+    // missing file, which is true and useless.
+    const why = bilibiliRejection(rawInput);
+    if (why) throw new Error(why);
+    return { path: rawInput, meta: null, download: null, stream: false };
+  }
   const mode = biliStreamMode();
   if (mode !== 'off') {
     try {
@@ -58,6 +69,25 @@ async function resolveSource(rawInput, { ffmpegPath, signal, log } = {}) {
   }
   const file = await bilibiliFile(rawInput, { ffmpegPath, signal, log, maxHeight: biliMaxHeight() });
   return { path: file.path, meta: file.meta, download: file, stream: false };
+}
+
+/**
+ * Probe for the two picture tools.
+ *
+ * A file with no video stream is not their input at all, so the media.js error
+ * ("this file is audio only") is rewritten to name the tool that *can* read it
+ * instead of leaving the model to guess whether the file was broken.
+ */
+async function probeForPicture(input, { ffmpegPath, ffprobePath }) {
+  try {
+    return await probeVideo(input, { ffmpegPath, ffprobePath });
+  } catch (error) {
+    const message = String(error?.message ?? error);
+    if (!/audio only/i.test(message)) throw error;
+    const next = new Error(`${message} — there is no picture to sample; video_read transcribes audio`);
+    next.detail = error?.detail;
+    throw next;
+  }
 }
 
 /** Highest quality worth downloading; 1080p by default, override with the env. */
@@ -138,7 +168,7 @@ export async function runStoryboard(opts) {
   mark('source');
 
   // ---- 1. probe
-  const probe = await probeVideo(input, { ffmpegPath, ffprobePath });
+  const probe = await probeForPicture(input, { ffmpegPath, ffprobePath });
   mark('probe');
   const dur = probe.duration || 0;
   const start = clamp(Number(opts.start) || 0, 0, Math.max(0, dur - 0.2));
@@ -147,6 +177,12 @@ export async function runStoryboard(opts) {
     ? clamp(endAsked, start + 0.2, dur)
     : (Number(opts.duration) > 0 ? Math.min(dur, start + Number(opts.duration)) : dur);
   const window = Math.max(0.2, end - start);
+  const notes = windowNotes({
+    duration: dur, start, end,
+    askedStart: Number(opts.start) || 0,
+    askedEnd: Number(opts.end),
+    askedDuration: Number(opts.duration),
+  });
 
   const aspect = Number.isFinite(probe.aspect) && probe.aspect > 0
     ? probe.aspect
@@ -160,20 +196,36 @@ export async function runStoryboard(opts) {
   const fromCache = Boolean(analysis);
 
   if (!analysis) {
+    // A two-hour recording costs a minute and a half to decode frame by frame
+    // and then plans a sheet of twenty pictures. Reading keyframes only measured
+    // 2.7x faster on exactly that file; it is tried only when the keyframes are
+    // far enough apart to be worth skipping, and never on a short window.
+    const asked = ['off', 'force'].includes(opts.keyframes) ? opts.keyframes
+      : (['off', 'force'].includes(process.env.DSH_SCAN_KEYFRAMES) ? process.env.DSH_SCAN_KEYFRAMES : 'auto');
+    const gapInfo = asked === 'off' ? { gap: null } : await keyframeGap({
+      input, ffprobePath, signal: opts.signal,
+    }).catch(() => ({ gap: null }));
+    const mode = keyframeMode({ asked, duration: window, gap: gapInfo?.gap ?? null });
     const [scan, audio] = await Promise.all([
       scanShots({
         input, ffmpegPath, fps: probe.fps || 25, aspect,
         start, duration: window, signal: opts.signal,
+        keyframes: mode.keyframes,
       }),
       probe.hasAudio
         ? analyzeAudio({ input, ffmpegPath, signal: opts.signal, duration: window, run })
           .catch((error) => ({ hasAudio: false, error: String(error?.message ?? error) }))
         : Promise.resolve({ hasAudio: false, skipped: true }),
     ]);
-    analysis = { scan, audio, start, window, at: Date.now() };
+    analysis = { scan, audio, start, window, at: Date.now(), keyframeMode: mode, keyframeGap: gapInfo?.gap ?? null };
     cacheSet(key, analysis);
   }
   const { scan, audio } = analysis;
+  if (scan.keyframes) {
+    const gap = analysis.keyframeGap;
+    notes.push(`analysis read keyframes only${gap ? ` (one every ${gap.toFixed(1)} s)` : ''} — `
+      + 'a change shorter than that gap is not seen; set DSH_SCAN_KEYFRAMES=off to decode every frame');
+  }
   mark('analyse');
 
   // ---- 3. transcript, in the order of who pays for it
@@ -221,6 +273,8 @@ export async function runStoryboard(opts) {
           source: 'asr',
           dropped: heard.dropped?.length ?? 0,
           terms: heard.terms ?? 0,
+          chunks: heard.chunks ?? 1,
+          chunked: Boolean(heard.chunked),
         };
         analysis.transcript = transcript;
       }
@@ -243,7 +297,21 @@ export async function runStoryboard(opts) {
   const maxCells = opts.maxCells
     ? clamp(Math.round(Number(opts.maxCells)), 1, MAX_CELLS_HARD)
     : undefined;
-  const plan = planCells({ scan, audio, detail, maxCells, aspect: probe.aspect });
+  if (Number(opts.maxCells) > MAX_CELLS_HARD) {
+    notes.push(`cells ${Math.round(Number(opts.maxCells))} capped at ${MAX_CELLS_HARD}`);
+  }
+  const plan = planCells({
+    scan, audio, detail, maxCells, aspect: probe.aspect, srcHeight: upright.height,
+    dedupe: opts.dedupe === 'global' ? 'global' : true,
+  });
+  if (plan.folded > 0) {
+    const where = (plan.foldedCells ?? []).slice(0, 3)
+      .map((f) => `${timecode(f.t0)}-${timecode(f.t1)} = cell ${f.cell}`).join(', ');
+    notes.push(`${plan.folded} cell(s) dropped as repeats${where ? ` — ${where}` : ''}; pass dedupe "shots" to keep them`);
+  }
+  if (plan.reduced) {
+    notes.push(`sheet reduced from ${plan.reduced.from} to ${plan.reduced.to} cells so text stays legible`);
+  }
   if ((opts.pick ?? 'sharp') === 'middle') {
     const startT = scan.start ?? 0;
     for (const c of plan.cells) {
@@ -282,13 +350,15 @@ export async function runStoryboard(opts) {
     ? plan.cells.filter((c) => c.index >= only.from && c.index <= only.to)
     : plan.cells;
 
-  const grid = planGrid(plan.cells.length, aspect, { pixels: sheetPixelsFor(plan.cells.length, detail) });
+  const grid = planGrid(plan.cells.length, aspect, {
+    pixels: sheetPixelsForCells(plan.cells.length, detail, { aspect, srcHeight: upright.height }),
+  });
   mark('plan');
 
   const base = {
     name: source.meta ? sourceTitle(source.meta) : basename(input),
     probe: { ...probe, width: upright.width, height: upright.height },
-    scan, plan, audio, transcript,
+    scan, plan, audio, transcript, notes,
     asrNote: asrNote ?? undefined,
   };
 
@@ -299,7 +369,7 @@ export async function runStoryboard(opts) {
       empty: false, textOnly: true, png: null,
       sheet: { grid, cells: plan.cells.length },
       manifest: `${shotHeader(scan, plan, start, window)}\n${manifest.text}`,
-      scan, plan, probe, audio, transcript, fromCache,
+      scan, plan, probe, audio, transcript, fromCache, notes,
       timings: { ...t, total: Date.now() - started },
     };
   }
@@ -356,7 +426,7 @@ export async function runStoryboard(opts) {
     sheet: { grid, width: sheetPixels.width, height: sheetPixels.height, bytes: png.length },
     manifest: manifest.text,
     truncated: manifest.truncated,
-    scan, plan, probe, audio, transcript, extraction, fromCache, zoom,
+    scan, plan, probe, audio, transcript, extraction, fromCache, zoom, notes,
     readability: cellReadability(grid.cellW, grid.cellH, upright.height),
     timings: { ...t, total: Date.now() - started },
     visionTokens: estimateVisionTokens(sheetPixels.width, sheetPixels.height),
@@ -379,7 +449,7 @@ export async function runZoom(opts) {
   const ffprobePath = opts.ffprobePath ?? await findFfprobe();
   const source = await resolveSource(opts.input, { ffmpegPath, signal: opts.signal, log: opts.log });
   const input = source.path;
-  const probe = await probeVideo(input, { ffmpegPath, ffprobePath });
+  const probe = await probeForPicture(input, { ffmpegPath, ffprobePath });
   const dur = probe.duration || 0;
   const start = clamp(Number(opts.start) || 0, 0, Math.max(0, dur - 0.1));
   const endAsked = Number(opts.end);
@@ -387,9 +457,16 @@ export async function runZoom(opts) {
     ? clamp(endAsked, start + 0.2, dur)
     : (Number(opts.duration) > 0 ? Math.min(dur, start + Number(opts.duration)) : Math.min(dur, start + 20));
   const window = Math.max(0.2, end - start);
+  const notes = windowNotes({
+    duration: dur, start, end,
+    askedStart: Number(opts.start) || 0,
+    askedEnd: Number(opts.end),
+    askedDuration: Number(opts.duration),
+  });
   const aspect = displayAspect(probe.coded.width, probe.coded.height, probe.sar, probe.rotation);
   const uprightH = uprightSize(probe.coded.width, probe.coded.height, probe.rotation).height;
   const wanted = clamp(Math.round(Number(opts.cells) || 3), 1, 9);
+  if (Number(opts.cells) > 9) notes.push(`cells ${Math.round(Number(opts.cells))} capped at 9`);
   const pixels = sheetPixelsFor(wanted, 'ultra');
   let grid;
   let scan = null;
@@ -457,12 +534,13 @@ export async function runZoom(opts) {
   for (const f of frames) {
     lines.push(`${f.index} @${timecode(f.at)}${f.t0 != null ? ` ${timecode(f.t0)}-${timecode(f.t1)}` : ''}`);
   }
+  for (const n of notes) lines.push(`note: ${n}`);
 
   return {
     png,
     sheet: { grid, width: sheetPixels.width, height: sheetPixels.height, bytes: png.length },
     manifest: lines.join('\n'),
-    probe,
+    probe, notes,
     readability: cellReadability(grid.cellW, grid.cellH, uprightH),
     timings: { total: Date.now() - started },
     visionTokens: estimateVisionTokens(sheetPixels.width, sheetPixels.height),
@@ -475,10 +553,13 @@ export async function runZoom(opts) {
 export async function runProbe(opts) {
   const started = Date.now();
   if (isBilibili(opts.input)) return await probeBilibili(opts.input, started);
+  const why = bilibiliRejection(opts.input);
+  if (why) throw new Error(why);
   const ffmpegPath = opts.ffmpegPath ?? await findFfmpeg();
   const ffprobePath = opts.ffprobePath ?? await findFfprobe();
   if (!ffmpegPath && !ffprobePath) throw new Error('no ffmpeg and no ffprobe found');
-  const probe = await probeVideo(opts.input, { ffmpegPath, ffprobePath });
+  const probe = await probeVideo(opts.input, { ffmpegPath, ffprobePath, allowAudioOnly: true });
+  if (probe.hasVideo === false) return audioProbe(opts.input, probe, started);
   const upright = uprightSize(probe.coded.width, probe.coded.height, probe.rotation);
   const plan = suggestDetail({
     duration: probe.duration,
@@ -504,9 +585,116 @@ export async function runProbe(opts) {
 }
 
 /**
+ * `video_probe` on a file with no picture.
+ *
+ * The useful answer is not "no video stream": it is the length, the codec, and
+ * which of the other tools can still read the file. video_read can — a subtitle
+ * track first, an ASR engine next, a transcript file instead of both.
+ */
+function audioProbe(input, probe, started) {
+  const kbps = probe.bitrate ? ` · ${Math.round(probe.bitrate / 1000)} kbps` : '';
+  const lines = [
+    `${basename(input)} · ${timecode(probe.duration, { hours: true })} · audio only · ${probe.audioCodec ?? 'unknown codec'}${kbps}`,
+    'no video stream — there is no picture to sample, so video_storyboard and video_zoom do not apply',
+    'next: video_read quotes this file — a subtitle track first, then DSH_ASR_CMD — or pass a transcript file to skip the engine',
+  ];
+  if (probe.hasSubtitle) lines.push('subtitle track present: video_read quotes it as-is, no engine needed');
+  lines.push(asrAvailable()
+    ? 'transcribe: an ASR engine is configured, so video_read can quote the speech'
+    : 'transcribe: no ASR engine configured — set DSH_ASR_CMD (or ~/.dsh/asr.json {"cmd": "..."}), or pass a transcript file to video_read');
+  lines.push(`elapsed ${Date.now() - started}ms`);
+  return { text: lines.join('\n'), probe, plan: null };
+}
+
+/* ---------------------------------------------------------------- outline */
+
+/**
+ * The whole file as rows of text: where the picture changes, where the camera
+ * moves, where somebody talks. No frame is decoded into a picture, so the call
+ * costs no vision tokens — it is the cheap first move on a file whose contents
+ * are unknown.
+ */
+export async function runOutline(opts) {
+  const started = Date.now();
+  const ffmpegPath = opts.ffmpegPath ?? await findFfmpeg();
+  if (!ffmpegPath) throw new Error('ffmpeg not found — set DSH_FFMPEG_PATH or install ffmpeg');
+  const ffprobePath = opts.ffprobePath ?? await findFfprobe();
+  const source = await resolveSource(opts.input, { ffmpegPath, signal: opts.signal, log: opts.log });
+  const input = source.path;
+  const probe = await probeForPicture(input, { ffmpegPath, ffprobePath });
+  const duration = probe.duration || 0;
+  const plan = planOutline({ duration, windows: opts.windows });
+
+  const notes = [];
+  if (plan.capped) notes.push(`windows ${plan.asked} capped at ${plan.count}`);
+
+  const aspect = Number.isFinite(probe.aspect) && probe.aspect > 0
+    ? probe.aspect
+    : displayAspect(probe.coded.width, probe.coded.height, probe.sar, probe.rotation);
+
+  // Keyframes when there is something to skip: the outline is a map, and a map
+  // of a two-hour file drawn frame by frame costs more than the answer is worth.
+  const asked = ['off', 'force'].includes(opts.keyframes) ? opts.keyframes
+    : (['off', 'force'].includes(process.env.DSH_SCAN_KEYFRAMES) ? process.env.DSH_SCAN_KEYFRAMES : 'auto');
+  const gapInfo = asked === 'off' ? { gap: null } : await keyframeGap({
+    input, ffprobePath, signal: opts.signal,
+  }).catch(() => ({ gap: null }));
+  const mode = keyframeMode({ asked, duration: plan.span, gap: gapInfo?.gap ?? null });
+
+  const [scan, audio] = await Promise.all([
+    scanShots({
+      input, ffmpegPath, fps: probe.fps || 25, aspect,
+      start: 0, duration: plan.span, signal: opts.signal,
+      keyframes: mode.keyframes,
+    }),
+    probe.hasAudio
+      ? analyzeAudio({ input, ffmpegPath, signal: opts.signal, duration: plan.span, run })
+        .catch((error) => ({ hasAudio: false, error: String(error?.message ?? error) }))
+      : Promise.resolve({ hasAudio: false, skipped: true }),
+  ]);
+
+  const rows = outlineRows({
+    plan,
+    effFps: scan.effFps || probe.fps || 25,
+    cuts: scan.cuts || [],
+    motion: scan.motion,
+    vectors: scan.vectors,
+    speech: audio.speech || [],
+    activity: audio.activity || [],
+    silence: audio.silences || [],
+  });
+
+  const hasAudio = audio.hasAudio === true;
+  const speechShare = plan.span > 0
+    ? Math.min(1, spanOverlap(audio.speech || [], 0, plan.span) / plan.span)
+    : 0;
+  const text = outlineReport({
+    title: source.meta ? sourceTitle(source.meta) : basename(input),
+    duration,
+    plan,
+    rows,
+    top: opts.top,
+    totalCuts: (scan.cuts || []).length,
+    speechShare,
+    hasAudio,
+    keyframeGap: scan.keyframes ? (gapInfo?.gap ?? null) : null,
+    notes,
+  });
+
+  return {
+    text,
+    probe,
+    plan,
+    rows,
+    timings: { total: Date.now() - started },
+  };
+}
+
+/**
  * What a B站 link is, before any byte of video is fetched: title, part, length,
  * the quality we are allowed to download, and whether there is a subtitle track
  * to quote from. Costs three HTTP calls and no decode, so the model can decide
+
  * what to do next with a link in under a second.
  */
 async function probeBilibili(rawInput, started) {
@@ -580,6 +768,32 @@ export function estimateVisionTokens(width, height) {
 }
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+/**
+ * Everything a window request lost, in the caller's own words.
+ *
+ * The planner clamps silently, because a clamp is not an error: asking for a
+ * window past the end of the file should still return the part that exists. But
+ * a clamped window reads exactly like a short file, so each clamp is reported
+ * once, where the caller will see it.
+ */
+export function windowNotes({ duration = 0, start = 0, end = 0, askedStart = 0, askedEnd = NaN, askedDuration = NaN } = {}) {
+  const notes = [];
+  const askedEndFinite = Number.isFinite(askedEnd) && askedEnd > askedStart;
+  if (askedStart > start + 0.05) {
+    notes.push(`start ${timecode(askedStart)} moved to ${timecode(start)} — the file is ${timecode(duration)} long`);
+  }
+  if (Number.isFinite(askedEnd) && askedEnd <= askedStart) {
+    notes.push(`end ${timecode(askedEnd)} is not after the start; ignored`);
+  } else if (askedEndFinite && askedEnd > end + 0.05) {
+    notes.push(`end ${timecode(askedEnd)} moved to ${timecode(end)} — the file is ${timecode(duration)} long`);
+  }
+  if (!askedEndFinite && Number.isFinite(askedDuration) && askedDuration > 0
+    && askedStart + askedDuration > end + 0.05) {
+    notes.push(`duration ${askedDuration}s runs past the end — window is ${timecode(start)}-${timecode(end)}`);
+  }
+  return notes;
+}
 
 function basename(p) {
   const s = String(p ?? '');

@@ -183,6 +183,6 @@ if (!dryRun) {
 }
 
 log('');
-log('next: restart DeepSeek Harness. The four tools appear as');
-log('  video_probe · video_storyboard · video_zoom · video_read');
+log('next: restart DeepSeek Harness. The five tools appear as');
+log('  video_probe · video_outline · video_storyboard · video_zoom · video_read');
 log(`verify with: node "${join(PLUGIN_DIR, 'bin', 'selfcheck.mjs')}"`);

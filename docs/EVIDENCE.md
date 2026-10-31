@@ -225,23 +225,79 @@ under-served.
 
 | input | wall clock | screens | characters |
 | --- | --- | --- | --- |
-| 2-hour lecture (`\u7b2c\u4e8c\u6b21\u8bfe`, 2560x1440) | **91 s** (scan 11 / grab 39 / OCR 40) | 56 | 7 588 |
+| 2-hour lecture (第二次课, 2560x1440) | **87 s** | 53 | 7 663 |
 | same lecture, 15-minute window | 16 s | 9 | 1 180 |
 | 36-second text-card clip (corpus D) | **1.1 s** | 6 | 584 |
-| 34-minute hand-written summary (B\u7ad9) | 6 s | 0 | --- |
+| 34-minute hand-written summary (B站) | 6 s | 0 → **6 pictures** | — |
 
-The hand-written video is the interesting row: it returns **no screens** and a
-note saying why. It has content, but not text this can honestly quote.
+The hand-written video is the interesting row: no text this can honestly quote,
+so the answer is six changed frames composed into one sheet, plus a note saying
+the document carries no readable text. It used to be an empty document and a
+suggestion to call `video_storyboard`; the rule about what counts as text did not
+change, only what happens after the answer "none".
 
 The outline recovered from the 2-hour lecture names examples 1-11 at
 00:45 / 05:27 / 17:20 / 27:58 / 41:05 / 56:16 / 67:34 / 76:44 / 85:38 / 90:10 /
 103:13 --- which is the structure of the lecture, derived from the pictures.
 
-A B\u7ad9 link costs one HTTP call for `video_probe` (**226 ms, no download**), and
+A B站 link costs one HTTP call for `video_probe` (**226 ms, no download**), and
 the first storyboard or read pays for the download once: a 3:33 music video is
 49.6 MB, a 34-minute 720P lecture is 51.7 MB (about 55 s on this connection), and
 the file is cached under `$DSH_HOME/cache/video-vision/bilibili/` for every call
 after that.
+
+### The map, before any picture
+
+`video_outline` draws nothing, so its cost is whatever the analysis pass costs:
+
+| input | wall clock | windows | what the rows said | vision tokens |
+| --- | --- | --- | --- | --- |
+| 57 s promo (1080p, speech) | **1.87 s** | 8 | 13 cuts, speech 93–100%, 6 windows tagged `busy` | **0** |
+| 70 s gameplay capture (1910x984) | **2.6 s** | 8 | 24 cuts, speech 96–100% | **0** |
+| 40 s corpus clip (720p, silent) | **0.94 s** | 8 | 9 cuts, every row `busy`, no speech column | **0** |
+
+The zero is by construction: no frame is composited and no image is attached, so
+there is nothing for the host to bill. The same three files through
+`video_storyboard` cost one 1 024-token sheet each.
+
+### The legibility rail
+
+`auto` used to fill a 1.76 Mpx sheet with 28 cells whatever the source size. The
+rail keeps the sheet's budget and spends it on cells no smaller than a fifth of
+the source height (16:9 sources, measured from the planner):
+
+| source | cells | sheet | cell height | vision tokens |
+| --- | --- | --- | --- | --- |
+| 720p | 28 | 1334x1319 | 188 | 1 024 |
+| 1080p | 21 | 1441x1221 | 204 | 1 024 |
+| 1440p | 11 | 1468x1105 | 276 | 974 |
+| 2160p | 5 | 1400x1185 | 395 | 1 017 |
+
+The corpus is 720p, which is why the battery is untouched: same 67 cells, same
+3 648 tokens, same sheet bytes. Above 1080p the same ~1 024 tokens buy fewer,
+larger cells instead of 28 smears.
+
+### Keyframes only, above ten minutes
+
+| pass | 2-hour lecture, analysis |
+| --- | --- |
+| every sampled frame | baseline |
+| keyframes only (`-skip_frame nokey`, gap ≥ 1 s) | **2.7× faster** |
+
+Applies only when the file is **≥ 600 s** and its measured keyframe gap is
+**≥ 1 s**; short windows and densely-keyframed files keep the full decode. The
+answer prints which pass ran and the gap it measured.
+
+### Sound with no picture
+
+Synthetic 3 s tone (`ffmpeg -f lavfi -i sine=frequency=440:duration=3 talk.wav`):
+
+| call | answer |
+| --- | --- |
+| `video_probe` | `audio only · pcm_s16le · N kbps`, `plan: null`, and the two ways to get words out |
+| `video_read` + `transcriptFile` | 2 lines, `# talk.wav — read as text · audio only · 2 lines · 00:03` |
+| `video_read`, no engine, no transcript | refuses: `no picture and no text` + the three ways out |
+| `video_storyboard` / `video_zoom` | `there is no picture to sample; video_read transcribes audio` |
 
 ## Why it is fast
 
@@ -334,9 +390,9 @@ export DSH_FFMPEG_PATH=/path/to/ffmpeg
 export DSH_FFPROBE_PATH=/path/to/ffprobe
 node bench/final.mjs --reps 3          # latency, geometry, tokens, coverage
 node bench/accuracy.mjs auto           # per-clip cut scoring against ground truth
-node bin/selfcheck.mjs --smoke         # 16 checks, builds its own clip
-node bin/selfcheck.mjs --smoke --host  # + the host's own schema engine (29 checks)
-node --test test/                      # 161 unit tests
+node bin/selfcheck.mjs --smoke         # 21 checks, builds its own clip
+node bin/selfcheck.mjs --smoke --host  # + the host's own schema engine (40 checks)
+node --test test/                      # 314 unit tests
 ```
 
 `bench/results/final.json` holds the raw records these tables were generated

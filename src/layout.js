@@ -56,6 +56,14 @@ export const VISION_TOKEN_CAP = 1024;
 export const VISION_PIXELS_CAP = 1_800_000;
 
 /**
+ * A cell may not be smaller than this share of the source picture's height.
+ *
+ * Below 1:5 a 1440p slide keeps only ~290 px of a 1440p page: the bullets are
+ * still shapes, no longer letters. The cell count is worth less than that.
+ */
+export const MAX_CELL_DOWNSCALE = 5;
+
+/**
  * Vision tokens scale with the sheet's AREA, not with the number of cells on
  * it, so the sheet is sized per cell rather than per sheet: six cells do not
  * need a million pixels to be readable, and twenty cells at 640k px would be
@@ -84,6 +92,24 @@ export function maxCellsByPixels(preset, aspect = 16 / 9) {
   return Math.max(LAYOUT_DEFAULTS.minCells, Math.floor(preset.max / cellArea));
 }
 
+/**
+ * How many cells still keep the source above MAX_CELL_DOWNSCALE.
+ *
+ * The rail above only guarantees a floor *width*; it says nothing about how
+ * much of a tall source survives. A cell is `sqrt(pixels / (cells * aspect))`
+ * tall and the sheet is capped by the token budget, so the only way to keep
+ * cells above the rail is to use fewer of them: the same tokens spent on bigger
+ * pictures. 1440p 16:9 auto therefore plans ~11 cells, not 22.
+ */
+export function maxCellsAtDownscale(detail, aspect = 16 / 9, srcHeight = 0, maxDownscale = MAX_CELL_DOWNSCALE) {
+  const preset = DETAIL_PRESETS[detail] ?? DETAIL_PRESETS.auto;
+  const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 16 / 9;
+  const h = Number(srcHeight);
+  if (!(h > 0) || !(maxDownscale > 1)) return preset.maxCells;
+  const n = Math.floor((preset.max * maxDownscale * maxDownscale) / (a * h * h));
+  return Math.max(LAYOUT_DEFAULTS.minCells, Math.min(preset.maxCells, n));
+}
+
 /** Images below this are upscaled by the host to 544x544 before billing. */
 export const MIN_SHEET_PIXELS = 300_000;
 
@@ -91,6 +117,24 @@ export const MIN_SHEET_PIXELS = 300_000;
 export function sheetPixelsFor(n, detail = 'auto') {
   const preset = DETAIL_PRESETS[detail] ?? DETAIL_PRESETS.auto;
   return Math.round(clamp(n * preset.perCell, MIN_SHEET_PIXELS, preset.max));
+}
+
+/**
+ * Pixels to spend on a sheet of `n` cells that must keep MAX_CELL_DOWNSCALE.
+ *
+ * Fewer cells usually means a smaller sheet; when the rail is what reduced the
+ * count the sheet is not shrunk with it, or every picture would come back at
+ * the same resolution as before and the reduction would buy nothing.
+ */
+export function sheetPixelsForCells(n, detail = 'auto', { aspect = 16 / 9, srcHeight = 0, maxDownscale = MAX_CELL_DOWNSCALE } = {}) {
+  const base = sheetPixelsFor(n, detail);
+  const preset = DETAIL_PRESETS[detail] ?? DETAIL_PRESETS.auto;
+  const h = Number(srcHeight);
+  const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 16 / 9;
+  if (!(h > 0) || !(maxDownscale > 1)) return base;
+  const cellH = h / maxDownscale;
+  const need = Math.round(Math.max(1, Math.round(n)) * cellH * cellH * a);
+  return Math.round(clamp(Math.max(base, need), MIN_SHEET_PIXELS, preset.max));
 }
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -404,7 +448,8 @@ function nextCandidate(shot, have, scan, chosenIdx, maxSad) {
  * @param {object} [opts.audio]  { speech:[{t,dur}], events:[{t,kind}] }
  * @param {number} [opts.maxCells]
  * @param {string} [opts.detail] low|auto|high|ultra
- * @param {boolean} [opts.dedupe]
+ * @param {boolean|string} [opts.dedupe] true (per shot), false, or 'global'
+ * @param {number} [opts.srcHeight] source picture height, for the downscale rail
  */
 /** Two adjacent groups become one wider group; the union is the whole span. */
 function mergeUnits(a, b) {
@@ -463,11 +508,13 @@ export function planCells(opts) {
   // starts when the pixels genuinely cannot keep every shot above the width at
   // which its contents are still recognisable.
   const legible = maxCellsByPixels(preset, opts.aspect);
+  // Two rails, both about legibility: a floor width for the smallest face, and
+  // a floor resolution against the source. The second one binds on tall sources.
+  const legibleDown = maxCellsAtDownscale(detail, opts.aspect, opts.srcHeight, opts.maxDownscale);
   const asked = Number.isFinite(opts.maxCells) ? opts.maxCells : preset.maxCells;
-  const budget = clamp(
-    Math.min(asked, preset.maxCells, legible),
-    LAYOUT_DEFAULTS.minCells, 64,
-  );
+  const byPixels = Math.min(asked, preset.maxCells, legible);
+  const rail = Math.min(byPixels, legibleDown);
+  const budget = clamp(rail, LAYOUT_DEFAULTS.minCells, 64);
   const maxSad = samePictureThreshold(scan);
 
   const shots = buildShots(scan);
@@ -589,6 +636,27 @@ export function planCells(opts) {
 
   chosen.sort((a, b) => a.t0 - b.t0);
 
+  // ---- 2b. cross-shot dedupe, opt-in
+  //
+  // Per-shot dedupe already refuses a second picture *inside* one shot. This
+  // folds a picture that comes back after a cut, which is what a lecture does
+  // when it returns to a diagram it built earlier. Off by default: a slide deck
+  // that reopens slide 1 usually keeps talking while it is up, and that cell
+  // then carries its own narration. The shot is still listed — the manifest
+  // attributes it to the cell that shows the same picture.
+  const foldedCells = [];
+  if (dedupe === 'global') {
+    const kept = [];
+    for (const c of chosen) {
+      const at = kept.findIndex((k) => pictureDistance(scan, k.frameIndex, c.frameIndex) <= maxSad);
+      if (at < 0) { kept.push(c); continue; }
+      // 1-based: the kept cells are already in time order, so the slot is the index
+      foldedCells.push({ t0: +c.t0.toFixed(3), t1: +c.t1.toFixed(3), cell: at + 1 });
+    }
+    chosen.length = 0;
+    for (const c of kept) chosen.push(c);
+  }
+
   // ---- 3. assemble cells
   const cells = chosen.map((c, i) => {
     const u = units[c.unitIndex];
@@ -627,10 +695,17 @@ export function planCells(opts) {
       ...s, ...feats[k], weight: +weights[k].w.toFixed(3), cells: perShot.get(k) ?? 0,
     })),
     deduped: shots.filter((s) => s.sameAsCell).length,
+    folded: foldedCells.length,
+    foldedCells,
     mergedGroups,
     duration,
     budget,
-    pixelBudget: sheetPixelsFor(chosen.length, detail),
+    // Named when the rail, not the caller, decided the count: a sheet that is
+    // half as wide as asked reads like a bug unless it says why.
+    reduced: rail < byPixels ? { from: byPixels, to: budget } : null,
+    pixelBudget: sheetPixelsForCells(chosen.length, detail, {
+      aspect: opts.aspect, srcHeight: opts.srcHeight, maxDownscale: opts.maxDownscale,
+    }),
     budgetUsed: chosen.length,
   };
 }

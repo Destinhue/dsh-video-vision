@@ -14,6 +14,9 @@ import {
   samePicture,
   planCells,
   maxCellsByPixels,
+  maxCellsAtDownscale,
+  sheetPixelsForCells,
+  MAX_CELL_DOWNSCALE,
   cellReadability,
   planGrid,
   pictureChangeFraction,
@@ -395,8 +398,78 @@ test('a long stretch with no cut still gets a cell per change, not one cell', ()
   assert.equal(new Set(plan.cells.map((c) => c.frameIndex)).size, plan.cells.length);
 });
 
+test('cross-shot dedupe is opt-in: a picture that comes back keeps its cell by default', () => {
+  // Three shots, and the first picture returns as the third: red / green / red.
+  const scan = makeScan({ duration: 6, cuts: [2, 4], blockAt: (i) => (i < 20 ? 0 : i < 40 ? 200 : 0) });
+  const perShot = planCells({ scan });
+  assert.equal(perShot.cells.length, 3, 'a returning slide keeps its own cell');
+  assert.equal(perShot.folded, 0);
+
+  const global = planCells({ scan, dedupe: 'global' });
+  assert.equal(global.cells.length, 2, 'the repeat is folded into the cell that shows it');
+  assert.equal(global.folded, 1);
+  assert.deepEqual(global.foldedCells.map((f) => f.cell), [1]);
+  assert.equal(global.foldedCells[0].t0, 4);
+  assert.equal(global.foldedCells[0].t1, 6);
+  assert.deepEqual(global.cells.map((c) => c.index), [1, 2]);
+  assert.equal(global.deduped, 1, 'the folded shot is reported as a repeat');
+  assert.ok(global.shots.some((s) => s.sameAsCell === 1), 'the folded shot points at cell 1');
+
+  // a picture that changes every time pays nothing
+  const distinct = makeScan({ duration: 6, cuts: [2, 4], blockAt: (i) => (i < 20 ? 0 : i < 40 ? 90 : 200) });
+  assert.equal(planCells({ scan: distinct, dedupe: 'global' }).folded, 0);
+});
+
 test('a long stretch that never changes is still one cell', () => {
   const scan = makeScan({ duration: 300, effFps: 2, blockAt: () => 120 });
   const plan = planCells({ scan });
   assert.equal(plan.cells.length, 1);
+});
+
+test('a taller source keeps fewer cells so its text survives the sheet', () => {
+  // The pixel rail only guarantees a floor width. A 1440p source spread over 22
+  // cells leaves every cell at 1/6 of it, past the 1:5 rail; 1080p keeps more.
+  const full = maxCellsAtDownscale('auto', 16 / 9, 1080);
+  const tall = maxCellsAtDownscale('auto', 16 / 9, 1440);
+  assert.ok(full > tall, `1080p (${full}) keeps more cells than 1440p (${tall})`);
+  assert.ok(tall <= 12, 'expected <=12 cells at 1440p, got ' + tall);
+  assert.ok(tall >= LAYOUT_DEFAULTS.minCells, 'never below the floor');
+  // monotone in height: 4K never keeps more cells than 1440p
+  assert.ok(maxCellsAtDownscale('auto', 16 / 9, 2160) <= tall);
+  // an unknown height is not a reason to cut anything
+  assert.equal(maxCellsAtDownscale('auto', 16 / 9, 0), DETAIL_PRESETS.auto.maxCells);
+  assert.equal(MAX_CELL_DOWNSCALE, 5);
+});
+
+test('fewer cells do not come back smaller: the sheet keeps the rail', () => {
+  const base = sheetPixelsFor(11, 'auto');
+  // 1080p needs nothing extra, so the numbers must not move at all
+  assert.equal(sheetPixelsForCells(11, 'auto', { srcHeight: 1080, aspect: 16 / 9 }), base);
+  const tall = sheetPixelsForCells(11, 'auto', { srcHeight: 1440, aspect: 16 / 9 });
+  assert.ok(tall > base, 'sheet grows to keep 1/5 of the source');
+  const cellH = 1440 / MAX_CELL_DOWNSCALE;
+  assert.ok(tall >= 11 * cellH * cellH * (16 / 9) * 0.99, 'each cell still holds ' + cellH + ' px of source');
+  assert.ok(tall <= DETAIL_PRESETS.auto.max, 'and never past the token budget');
+  assert.equal(sheetPixelsForCells(11, 'auto', { srcHeight: 0 }), base);
+});
+
+test('planCells says when the rail, not the caller, decided the count', () => {
+  const scan = makeScan({
+    duration: 60,
+    blockAt: (i, frames) => Math.round((i / (frames - 1)) * 255),
+  });
+  const normal = planCells({ scan, aspect: 16 / 9, srcHeight: 720 });
+  assert.equal(normal.reduced, null, 'a 720p source is never cut by the rail');
+
+  const tall = planCells({ scan, aspect: 16 / 9, srcHeight: 1440 });
+  assert.ok(tall.reduced, 'a 1440p source is reported as reduced');
+  assert.equal(tall.reduced.to, tall.budget);
+  assert.equal(tall.budget, Math.min(normal.budget, maxCellsAtDownscale('auto', 16 / 9, 1440)));
+  assert.ok(tall.budget < normal.budget, 'the rail actually cut the count');
+  assert.ok(tall.reduced.from >= tall.reduced.to);
+
+  // an explicit ask below the rail is the caller's decision, not a reduction
+  const small = planCells({ scan, aspect: 16 / 9, srcHeight: 1440, maxCells: 4 });
+  assert.equal(small.reduced, null);
+  assert.ok(small.budget <= 4);
 });

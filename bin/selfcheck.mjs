@@ -4,7 +4,7 @@
  *
  *   node bin/selfcheck.mjs            # toolchain + registration + schema
  *   node bin/selfcheck.mjs --smoke    # ...and one real end-to-end storyboard
- *   node bin/selfcheck.mjs --host     # validate all three tools against the
+ *   node bin/selfcheck.mjs --host     # validate all five tools against the
  *                                     # installed Harness's own schema engine
  *                                     # (needs Electron's node: ELECTRON_RUN_AS_NODE=1)
  *
@@ -63,7 +63,10 @@ async function main() {
     logger: { info() {}, warn() {}, error() {} },
   };
   await plugin.apply(fake);
-  record(registered.length === 4, 'four tools registered', registered.map((s) => s.name).join(', '));
+  const want = ['video_probe', 'video_outline', 'video_storyboard', 'video_zoom', 'video_read'];
+  const names = registered.map((s) => s.name);
+  record(names.length === want.length && want.every((n) => names.includes(n)),
+    'five tools registered', names.join(', '));
   for (const spec of registered) {
     const okSchema = spec?.parameters?.type === 'object' && spec?.output?.schema;
     const okShape = typeof spec.execute === 'function' && typeof spec.output?.render === 'function';
@@ -103,6 +106,14 @@ async function main() {
   record(text.includes('sheet 1'), 'manifest has the index header', `${text.length} chars`);
   record(result.visionTokens <= 1024, 'within the per-image token cap', `${result.visionTokens} tokens`);
   console.log(`\n${text}`);
+
+  const { runOutline } = await import('../src/pipeline.js');
+  const outline = await runOutline({ input: clip, ffmpegPath: ffmpeg, ffprobePath: ffprobe, windows: 4, top: 2 });
+  const outlineCuts = outline.rows.reduce((sum, row) => sum + row.cuts, 0);
+  record(outline.rows.length === 4 && outlineCuts === 2, 'outline divides the clip',
+    `${outline.rows.length} windows, ${outlineCuts} cuts`);
+  record(outline.text.startsWith('smoke.mp4') && outline.text.includes('note: text only'),
+    'outline answers in text only', `${outline.text.length} chars`);
   console.log(`\nsmoke: ${ms} ms total, ${result.plan.cells.length} cells, ${result.visionTokens} vision tokens`);
   await rm(dir, { recursive: true, force: true });
   return finish();
@@ -149,6 +160,7 @@ async function hostCheck(registered, clip) {
 
   const calls = {
     video_probe: { input: clip },
+    video_outline: { input: clip, windows: 4 },
     video_storyboard: { input: clip, detail: 'low' },
     video_zoom: { input: clip, start: 1, duration: 2, cells: 2 },
   };

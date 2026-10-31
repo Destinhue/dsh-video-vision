@@ -380,8 +380,8 @@ function emptyInfo(pathIn) {
   return {
     path: pathIn, duration: 0, width: 0, height: 0, coded: { width: 0, height: 0 },
     rotation: 0, fps: 25, sar: 1, aspect: 16 / 9, videoCodec: 'unknown',
-    container: 'unknown', hasAudio: false, hasSubtitle: false, audioCodec: null,
-    bitrate: 0, probeMode: 'none',
+    container: 'unknown', hasAudio: false, hasSubtitle: false, hasVideo: false,
+    audioCodec: null, bitrate: 0, probeMode: 'none',
   };
 }
 
@@ -436,6 +436,7 @@ export function parseFfmpegBanner(text, pathIn) {
   const rot = /rotate\s*:\s*(-?\d+)/.exec(text) || /displaymatrix: rotation of (-?[\d.]+) degrees/.exec(text);
   if (rot) info.rotation = normalizeRotation(Number(rot[1]));
 
+  info.hasVideo = sawVideo;
   finalize(info);
   return info;
 }
@@ -529,7 +530,7 @@ export async function probeVideo(input, opts = {}) {
         '-print_format', 'json', '-show_format', '-show_streams', input,
       ], { maxBuffer: 16 * 1024 * 1024, timeoutMs: 60_000 });
       const parsed = JSON.parse(r.stdout.toString('utf8'));
-      return finalizeFromProbe(parsed, input);
+      return finalizeFromProbe(parsed, input, { allowAudioOnly: opts.allowAudioOnly === true });
     } catch {
       /* fall through to the banner */
     }
@@ -540,6 +541,9 @@ export async function probeVideo(input, opts = {}) {
     maxBuffer: 8 * 1024 * 1024, timeoutMs: 60_000,
   });
   const info = parseFfmpegBanner(r.stderr.toString('utf8'), input);
+  // A caller that can handle a file with no picture (video_read transcribes it)
+  // asks for the facts instead of an error; everyone else still gets the error.
+  if (!(info.coded.width > 0) && opts.allowAudioOnly === true && info.hasAudio) return info;
   if (!(info.coded.width > 0)) {
     const detail = r.stderr.toString('utf8');
     const audioOnly = /\bAudio:/.test(detail) && !/\bVideo:/.test(detail);
@@ -555,17 +559,29 @@ export async function probeVideo(input, opts = {}) {
   return info;
 }
 
-export function finalizeFromProbe(parsed, pathIn) {
+export function finalizeFromProbe(parsed, pathIn, opts = {}) {
   const streams = Array.isArray(parsed?.streams) ? parsed.streams : [];
   const video = streams.find((s) => s?.codec_type === 'video');
+  const audio = streams.find((s) => s?.codec_type === 'audio');
+  const subtitle = streams.find((s) => s?.codec_type === 'subtitle');
   if (!video) {
-    const audio = streams.find((s) => s?.codec_type === 'audio');
+    // Audio-only is a fact, not a failure, for a caller that can transcribe it:
+    // the same shape comes back with hasVideo:false and no size.
+    if (opts.allowAudioOnly === true && audio) {
+      const info = emptyInfo(pathIn);
+      info.duration = Number(parsed?.format?.duration) || Number(audio.duration) || 0;
+      info.container = parsed?.format?.format_name ?? 'unknown';
+      info.hasAudio = true;
+      info.hasSubtitle = Boolean(subtitle);
+      info.audioCodec = audio.codec_name ?? null;
+      info.bitrate = Number(parsed?.format?.bit_rate) || 0;
+      info.probeMode = 'ffprobe';
+      return finalize(info);
+    }
     throw new Error(audio
       ? `no video stream (this file is audio only) — "${pathIn}"`
       : `no video stream — "${pathIn}"`);
   }
-  const audio = streams.find((s) => s?.codec_type === 'audio');
-  const subtitle = streams.find((s) => s?.codec_type === 'subtitle');
   const duration = Number(parsed?.format?.duration) || Number(video?.duration) || 0;
   const rotation = normalizeRotation(
     video?.side_data_list?.find((d) => d?.rotation !== undefined)?.rotation ?? video?.tags?.rotate,
@@ -584,6 +600,7 @@ export function finalizeFromProbe(parsed, pathIn) {
     container: parsed?.format?.format_name ?? 'unknown',
     hasAudio: Boolean(audio),
     hasSubtitle: Boolean(subtitle),
+    hasVideo: true,
     audioCodec: audio?.codec_name ?? null,
     bitrate: Number(parsed?.format?.bit_rate) || 0,
     probeMode: 'ffprobe',

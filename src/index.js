@@ -1,10 +1,12 @@
 /**
  * index.js — plugin entry.
  *
- * Registers three tools into the host:
+ * Registers five tools into the host:
  *   video_probe       metadata only, no decode
+ *   video_outline     the whole file as rows of text, no picture, no vision tokens
  *   video_storyboard  one contact sheet + a timecoded text index
  *   video_zoom        a short window at usable per-cell resolution
+ *   video_read        the file as a timestamped text document
  *
  * Contract (verified against a plugin that runs on this host):
  *   apply(ctx) registers plain tool objects — no import from
@@ -15,10 +17,10 @@
  *   re-encodes and validates the bytes, so we hand it a real PNG.
  */
 
-import { runStoryboard, runZoom, runProbe } from './pipeline.js';
+import { runStoryboard, runZoom, runProbe, runOutline } from './pipeline.js';
 import { findFfmpeg, findFfprobe, toolchainReport } from './media.js';
 import { runRead } from './read.js';
-import { probeSpec, storyboardSpec, zoomSpec, readSpec, PROBE_TOOL, STORYBOARD_TOOL, ZOOM_TOOL, READ_TOOL } from './tools.js';
+import { probeSpec, storyboardSpec, zoomSpec, readSpec, outlineSpec, PROBE_TOOL, STORYBOARD_TOOL, ZOOM_TOOL, READ_TOOL, OUTLINE_TOOL } from './tools.js';
 
 export const name = 'dsh-video-vision';
 export const inject = ['tools', 'attachments'];
@@ -78,11 +80,18 @@ export async function apply(ctx) {
           start: args.start ?? 0,
           end: args.end ?? 0,
           maxScreens: args.maxScreens,
+          transcriptFile: typeof args.transcriptFile === 'string' ? args.transcriptFile : undefined,
+          out: typeof args.out === 'string' ? args.out : undefined,
           signal: exec?.signal,
         });
-        return { text: out.text };
+        // A file with no readable text comes back with a few pictures instead:
+        // the same answer, one attachment, no second round trip.
+        const images = out.png
+          ? await attachImages(ctx, [{ data: out.png, name: `read-pictures-${out.pictures?.length ?? 0}.png` }])
+          : [];
+        return { text: out.text, images };
       } catch (error) {
-        return { text: `video error: ${String(error?.message ?? error)}` };
+        return { text: `video error: ${String(error?.message ?? error)}`, images: [] };
       }
     },
 
@@ -101,6 +110,7 @@ export async function apply(ctx) {
           transcriptFile: typeof args.transcriptFile === 'string' ? args.transcriptFile : undefined,
           cellRange: Array.isArray(args.cellRange) ? args.cellRange : null,
           pick: args.pick === 'middle' ? 'middle' : 'sharp',
+          dedupe: args.dedupe === 'global' ? 'global' : undefined,
           signal: exec?.signal,
           log: debugLog,
         });
@@ -137,6 +147,22 @@ export async function apply(ctx) {
       }
     },
 
+    async outline(args, exec) {
+      try {
+        const bins = await ensureBinaries();
+        const result = await runOutline({
+          ...bins,
+          input: args.input,
+          windows: args.windows,
+          top: args.top,
+          signal: exec?.signal,
+        });
+        return { text: result.text, images: [] };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+
     async probeLocal(args, exec) {
       try {
         // runProbe() returns { text, probe, plan }; the tool's canonical value is
@@ -154,6 +180,7 @@ export async function apply(ctx) {
     storyboard: handlers.storyboard,
     zoom: handlers.zoom,
     read: handlers.read,
+    outline: handlers.outline,
   };
 
   const disposers = [];
@@ -171,6 +198,7 @@ export async function apply(ctx) {
   probeTool.execute = (args, exec) => handlers.probeLocal(args, exec);
 
   register(probeTool, PROBE_TOOL);
+  register(outlineSpec(toolCtx), OUTLINE_TOOL);
   register(storyboardSpec(toolCtx), STORYBOARD_TOOL);
   register(zoomSpec(toolCtx), ZOOM_TOOL);
   register(readSpec(toolCtx), READ_TOOL);

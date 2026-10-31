@@ -23,12 +23,19 @@
  * ffmpeg or an OCR engine.
  */
 import { spawn } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { ocrBackend, ocrDirectory } from './ocr.js';
 import { isBilibili, bilibiliFile, bilibiliStream, biliStreamMode, biliStreamLimit, bilibiliView } from './bili.js';
 import { probeVideo, netInputArgs, fpsModeArgs, altFpsModeArgs, run } from './media.js';
+import { extractSubtitles } from './timeline.js';
+import { extractCells } from './frames.js';
+import { composeSheet } from './sheet.js';
+import { encodePng } from './png.js';
+import { planGrid, sheetPixelsFor } from './layout.js';
+import { loadTranscriptFile } from './transcript.js';
+import { asrAvailable, asrCues } from './asr.js';
 
 export const READ_DEFAULTS = {
   gridWidth: 96,
@@ -55,6 +62,96 @@ export const READ_DEFAULTS = {
   grabWorkers: 8,
   settle: 0.35,
 };
+
+/**
+ * Say out loud when the reader stopped early.
+ *
+ * A document that stops at screen 400 reads exactly like a video that only had
+ * 400 screens, so the cap and the request it trimmed are both named.
+ */
+export function capNotes({ askedScreens = 0, maxScreens = READ_DEFAULTS.maxScreens, changed = 0 } = {}) {
+  const notes = [];
+  if (changed > maxScreens) {
+    notes.push(`capped at ${maxScreens} of ${changed} changed frames — raise maxScreens, or read a window`);
+  }
+  if (askedScreens > READ_DEFAULTS.maxScreens) {
+    notes.push(`maxScreens ${askedScreens} capped at ${READ_DEFAULTS.maxScreens}`);
+  }
+  return notes;
+}
+
+export const FALLBACK_CELLS = 6;
+
+/**
+ * Where to sample when the file carries no readable text.
+ *
+ * A keyframe that was already decoded is the cheapest evidence — it is known to
+ * exist and it is where the picture changed — so the stamps are preferred when
+ * there are enough of them. Otherwise the window is divided evenly, which lands
+ * on ordinary frames but never on the very first or last one.
+ *
+ * @param {object} p
+ * @param {number} [p.start]
+ * @param {number} [p.end]     known end of the window (0 = unknown)
+ * @param {number[]} [p.stamps] presentation times the scan already decoded
+ * @param {number} [p.count]
+ * @returns {Array<{index:number, frameT:number}>}
+ */
+export function fallbackTimes({ start = 0, end = 0, stamps = [], count = FALLBACK_CELLS } = {}) {
+  const n = Math.max(1, Math.round(count));
+  const usable = Array.isArray(stamps) ? stamps.filter((s) => Number.isFinite(s) && s >= 0) : [];
+  if (usable.length >= n) {
+    const cells = [];
+    for (let i = 0; i < n; i++) {
+      const s = usable[Math.round((i * (usable.length - 1)) / Math.max(1, n - 1))];
+      cells.push({ index: i + 1, frameT: Math.max(0, start + s) });
+    }
+    return cells;
+  }
+  const last = usable.length ? Math.max(...usable) + 1 : 0;
+  const stop = end > start ? end : start + (last || 1);
+  const span = Math.max(0, stop - start);
+  if (span <= 0) return [{ index: 1, frameT: Math.max(0, start) }];
+  const cells = [];
+  for (let i = 0; i < n; i++) {
+    // the centre of each equal slice: a window shorter than the count still
+    // samples distinct moments, and no cell sits on the boundary frame
+    cells.push({ index: i + 1, frameT: Math.max(0, start + ((i + 0.5) / n) * span) });
+  }
+  return cells;
+}
+
+/**
+ * A small contact sheet for a video that had no text to quote.
+ *
+ * Handwriting, a camera pointed at a screen and a whiteboard with no heading all
+ * reach OCR as loose strokes. An empty document makes the caller spend a second
+ * round trip to discover that the picture itself is the evidence, so a few
+ * frames are decoded here and attached to the same answer.
+ *
+ * @param {object} p
+ * @returns {Promise<{png:Buffer, grid:object, cells:Array<{index:number, frameT:number}>} | null>}
+ */
+export async function pictureFallback({
+  input, ffmpegPath, start = 0, end = 0, stamps = [], aspect = 16 / 9, signal, count = FALLBACK_CELLS,
+}) {
+  const cells = fallbackTimes({ start, end, stamps, count });
+  const grid = planGrid(cells.length, aspect, { pixels: sheetPixelsFor(cells.length, 'auto') });
+  const extraction = await extractCells({
+    input, ffmpegPath, cells, cellW: grid.cellW, cellH: grid.cellH, signal, oversample: 1, measure: false,
+  });
+  const kept = cells.filter((c) => extraction.frames.has(c.index));
+  if (!kept.length) return null;
+  const pixels = composeSheet({
+    grid,
+    cells: kept.map((c) => {
+      const f = extraction.frames.get(c.index);
+      return { index: c.index, frame: f.data, width: f.width, height: f.height };
+    }),
+  });
+  const png = encodePng(pixels.data, pixels.width, pixels.height);
+  return { png, grid, cells: kept };
+}
 
 /** strings that belong to the recorder or the meeting app, not the lecture */
 const CHROME = [
@@ -481,6 +578,128 @@ async function extractDenseFrames(ffmpegPath, input, { start = 0, end = 0, step 
   return { dir };
 }
 
+/* ----------------------------------------------------------------- audio */
+
+/** Ceiling on one audio document; a two-hour talk is ~30k characters. */
+export const AUDIO_DOC_MAX_CHARS = 40_000;
+
+/**
+ * The document `video_read` returns for a file that has no picture.
+ *
+ * Pure: the cues are already in hand (a transcript file, the container's
+ * subtitle track, or an ASR engine). What this decides is only how they read —
+ * a header that states what was quoted and by what, one `[mm:ss–mm:ss] text`
+ * line per cue, and a counted note when the document had to be cut. The
+ * alternative, returning "no video stream", is true and useless: the speech is
+ * still there and is exactly what video_read exists to turn into text.
+ */
+export function audioDocument({
+  title = '', duration = 0, cues = [], quotedBy = null, start = 0, end = 0,
+  maxChars = AUDIO_DOC_MAX_CHARS,
+} = {}) {
+  const from = Math.max(0, Number(start) || 0);
+  const asked = Number(end);
+  const to = asked > from ? asked : (duration > 0 ? duration : Infinity);
+  const inWindow = (cues ?? [])
+    .filter((c) => Number.isFinite(c.t0) && Number.isFinite(c.t1) && c.t1 > from && c.t0 < to)
+    .sort((a, b) => a.t0 - b.t0);
+  const lines = [];
+  let chars = 0;
+  for (const c of inWindow) {
+    const span = c.t1 > c.t0 + 1 ? `${tc(c.t0)}–${tc(c.t1)}` : tc(c.t0);
+    const line = `[${span}] ${String(c.text ?? '').replace(/\s+/g, ' ').trim()}`;
+    // Cut on a cue boundary, never inside one: a half sentence reads as a
+    // transcription error, while a document that stops between two lines does not.
+    if (lines.length && chars + line.length + 1 > maxChars) break;
+    lines.push(line);
+    chars += line.length + 1;
+  }
+  const capped = inWindow.length - lines.length;
+  const body = [`# ${title || 'audio'} — read as text · audio only · ${inWindow.length} lines · ${tc(duration || 0)}`];
+  body.push('note: audio only — there is no picture, so this document quotes the speech, not the screen');
+  if (quotedBy) body.push(`note: quoted by ${quotedBy}`);
+  if (duration > 0 && (from > 0 || asked > 0)) {
+    body.push(`note: window ${tc(from)}–${tc(Math.min(to, duration))} of ${tc(duration)}`);
+  }
+  if (!inWindow.length) body.push('', 'note: no speech was found in this window');
+  if (capped > 0) {
+    body.push('', `note: capped at ${lines.length} of ${inWindow.length} lines (${chars} characters) — `
+      + 'read a window for the rest');
+  }
+  body.push('');
+  for (const line of lines) body.push(line);
+  body.push('');
+  const text = body.join('\n');
+  return { text, lines: lines.length, cues: inWindow.length, capped: capped > 0 ? capped : 0 };
+}
+
+/**
+ * Read a file that carries sound and no picture: transcript file first, then the
+ * container's subtitle track, then the configured ASR engine. Whichever wins,
+ * the result is the same shape as a screen read, so callers do not branch.
+ */
+async function readAudio({ input, source, meta, start, end, signal, sourceTitle, opts }) {
+  const duration = meta.duration || 0;
+  const title = sourceTitle || input.split(/[\\/]/).pop();
+  const from = Math.max(0, Number(start) || 0);
+  const asked = Number(end);
+  const to = asked > from ? asked : 0;
+  const codec = meta.audioCodec ? ` · ${meta.audioCodec}` : '';
+  // Tests inject an empty env to pin the "no engine configured" path; the tool
+  // never passes one, so this is process.env in production.
+  const env = opts.env;
+  let cues = [];
+  let quotedBy = null;
+  if (opts.transcriptFile) {
+    const loaded = loadTranscriptFile(opts.transcriptFile);
+    cues = loaded.cues;
+    quotedBy = `the transcript file you passed (${loaded.source})`;
+  }
+  if (!cues.length) {
+    const subs = await extractSubtitles({ input: source, ffmpegPath: opts.ffmpegPath, signal, run, probe: meta });
+    if (subs.cues.length) { cues = subs.cues; quotedBy = 'the subtitle track in the container'; }
+  }
+  if (!cues.length) {
+    if (!asrAvailable(env)) {
+      throw new Error(`no picture and no text: "${input}" is audio only (${tc(duration)}${codec}) and there is no `
+        + 'transcript — set DSH_ASR_CMD (or write ~/.dsh/asr.json {"cmd": "..."}) to transcribe it, or pass transcriptFile');
+    }
+    const asr = await asrCues({
+      ffmpegPath: opts.ffmpegPath, input: source, start: from, end: to || null,
+      duration: duration || null, signal, env,
+    });
+    if (!asr.cues.length) {
+      throw new Error(`audio only, and transcription returned nothing${asr.reason ? ` (${asr.reason})` : ''} — "${input}"`);
+    }
+    cues = asr.cues;
+    const pieces = asr.chunked && asr.chunks > 1 ? `, ${asr.chunks} chunks cut on silence` : '';
+    quotedBy = asr.engine ? `speech recognition (${asr.engine}${pieces})` : 'speech recognition';
+  }
+  const doc = audioDocument({ title, duration, cues, quotedBy, start: from, end: to });
+  const written = withExport(doc.text, cues, opts.out, {
+    empty: 'nothing to write — no speech was found in this window',
+  });
+  return {
+    text: written.text,
+    screens: [],
+    outline: [],
+    cues,
+    wrote: written.wrote,
+    stats: {
+      audio: true,
+      lines: doc.lines,
+      cues: doc.cues,
+      capped: doc.capped,
+      chars: written.text.length,
+      duration,
+      audioCodec: meta.audioCodec ?? null,
+      quotedBy,
+    },
+    timings: {},
+    audio: true,
+  };
+}
+
 /**
  * Read a video as a timestamped text document.
  *
@@ -488,11 +707,112 @@ async function extractDenseFrames(ffmpegPath, input, { start = 0, end = 0, step 
  *          signal?:AbortSignal, maxScreens?:number,
  *          crop?:{x:number,y:number,w:number,h:number}}} opts
  */
+
+/* --------------------------------------------------------------- export out */
+
+/** `HH:MM:SS,mmm` (SRT) or `HH:MM:SS.mmm` (VTT) from seconds. */
+function stamp(seconds, sep = ',') {
+  const s = Math.max(0, Number(seconds) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  const ms = Math.round((s - Math.floor(s)) * 1000);
+  const pad = (v, n = 2) => String(v).padStart(n, '0');
+  return `${pad(h)}:${pad(m)}:${pad(sec)}${sep}${pad(ms, 3)}`;
+}
+
+/** One `[mm:ss] text` line per screen or cue — the shape a chat window reads. */
+export function transcriptLines(items) {
+  const out = [];
+  for (const it of items ?? []) {
+    const text = String(it.text ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    const t = it.t ?? it.t0 ?? 0;
+    out.push(`[${tc(t)}] ${text}`);
+  }
+  return out;
+}
+
+/** Subtitle file body. `vtt` keeps the same cues with a WebVTT header. */
+export function subtitleFile(items, { format = 'srt' } = {}) {
+  const sep = format === 'vtt' ? '.' : ',';
+  const blocks = [];
+  let n = 0;
+  for (const it of items ?? []) {
+    const text = String(it.text ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    const t0 = Number(it.t ?? it.t0 ?? 0) || 0;
+    // A cue with no end would produce an empty subtitle: give it two seconds.
+    const t1 = Math.max(t0 + 0.2, Number(it.tEnd ?? it.t1 ?? 0) || t0 + 2);
+    n += 1;
+    blocks.push(`${n}\n${stamp(t0, sep)} --> ${stamp(t1, sep)}\n${text}`);
+  }
+  if (format === 'vtt') return `WEBVTT\n\n${blocks.join('\n\n')}${blocks.length ? '\n' : ''}`;
+  return `${blocks.join('\n\n')}${blocks.length ? '\n' : ''}`;
+}
+
+/**
+ * Write the read result where the caller asked for it.
+ *
+ * The document in the reply is for the model; a file is for the person who asked
+ * for captions, notes or an exam set and now wants to keep them. Extension
+ * decides the shape: `.srt` / `.vtt` are subtitles, anything else is one
+ * `[mm:ss] text` line per screen.
+ */
+export function writeReadExport(outPath, items, { format = 'text' } = {}) {
+  const target = resolve(String(outPath));
+  mkdirSync(dirname(target), { recursive: true });
+  const body = format === 'text' ? transcriptLines(items).join('\n') + (items?.length ? '\n' : '')
+    : subtitleFile(items, { format });
+  writeFileSync(target, body, 'utf8');
+  const lines = format === 'text' ? (body ? body.trimEnd().split('\n').length : 0) : (items?.length ?? 0);
+  return { path: target, format, lines, bytes: Buffer.byteLength(body, 'utf8') };
+}
+
+/** `.srt` and `.vtt` ask for subtitles; every other extension is plain lines. */
+export function exportFormat(outPath) {
+  const ext = String(outPath ?? '').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
+  if (ext === 'srt') return 'srt';
+  if (ext === 'vtt') return 'vtt';
+  return 'text';
+}
+
+/**
+ * Append the one line that tells the reader a file was written, and carry the
+ * field the tool returns. Same shape for screens and for cues, so a caller that
+ * asked for `out` never has to parse the prose to find the path.
+ */
+function withExport(text, items, out, { empty = 'nothing to write — no text was read from this window' } = {}) {
+  if (!out) return { text, wrote: null };
+  const target = resolve(String(out));
+  if (!items?.length) return { text: `${text.trimEnd()}\n\nnote: ${empty} (not written: ${target})\n`, wrote: null };
+  try {
+    const wrote = writeReadExport(target, items, { format: exportFormat(target) });
+    const what = wrote.format === 'text'
+      ? `${wrote.lines} line(s)`
+      : `${wrote.lines} cue(s) as ${wrote.format.toUpperCase()}`;
+    return { text: `${text.trimEnd()}\n\nnote: wrote ${what} to ${wrote.path}\n`, wrote };
+  } catch (error) {
+    return {
+      text: `${text.trimEnd()}\n\nnote: could not write ${target}: ${error.message}\n`,
+      wrote: { path: target, error: error.message },
+    };
+  }
+}
+
+/** The screens of a video read, in the shape the exporter wants. */
+export function screensAsItems(screens) {
+  return (screens ?? []).map((s) => ({
+    t: s.t, tEnd: s.tEnd ?? s.t, text: s.text ?? (Array.isArray(s.lines) ? s.lines.join(' ') : ''),
+  }));
+}
+
 export async function runRead(opts) {
   const {
     input, ffmpegPath, start = 0, end = 0, signal,
   } = opts;
-  const maxScreens = Math.min(opts.maxScreens ?? READ_DEFAULTS.maxScreens, READ_DEFAULTS.maxScreens);
+  const askedScreens = Number(opts.maxScreens) || READ_DEFAULTS.maxScreens;
+  const maxScreens = Math.min(askedScreens, READ_DEFAULTS.maxScreens);
   // a B站 link has to become a file first; everything below works on a path
   let source = input;
   let sourceTitle = null;
@@ -519,6 +839,21 @@ export async function runRead(opts) {
     }
   }
   const crop = opts.crop ?? READ_DEFAULTS.crop;
+
+  // One probe, before the OCR check: a file with no picture has nothing to OCR,
+  // and answering "cannot read text" about it would be wrong — video_read can
+  // transcribe it perfectly well once it knows to take the audio path.
+  let meta = null;
+  try {
+    meta = await probeVideo(source, { ffmpegPath, allowAudioOnly: true });
+  } catch { meta = null; }
+  if (meta && meta.hasVideo === false) {
+    const at = Date.now();
+    const out = await readAudio({ input, source, meta, start, end, signal, sourceTitle, opts });
+    out.timings.total = Date.now() - at;
+    return out;
+  }
+
   const backend = ocrBackend();
   if (!backend.ok) throw new Error(`cannot read text: ${backend.reason}`);
   const timings = {};
@@ -529,12 +864,9 @@ export async function runRead(opts) {
   let dense = 0;
   let knownEnd = end || 0;
   if (!end) {
-    try {
-      const meta = await probeVideo(source, { ffmpegPath });
-      const span = (meta.duration || 0) - start;
-      if (span > 0) knownEnd = start + span;
-      if (span > 1 && span <= READ_DEFAULTS.denseUnder) dense = READ_DEFAULTS.denseSeconds;
-    } catch { /* no duration: fall back to keyframes */ }
+    const span = ((meta?.duration) || 0) - start;
+    if (span > 0) knownEnd = start + span;
+    if (span > 1 && span <= READ_DEFAULTS.denseUnder) dense = READ_DEFAULTS.denseSeconds;
   }
   const { grids, stamps } = await decodeKeyframes(ffmpegPath, source, { start, end, signal, dense });
   timings.scan = Date.now() - t0;
@@ -547,10 +879,26 @@ export async function runRead(opts) {
     if (last < 0 || gridChange(grids[last], grids[i]) >= gate) {
       picked.push(i);
       last = i;
-      if (picked.length >= maxScreens) break;
     }
   }
-  if (!picked.length) throw new Error('no frames could be decoded from this input');
+  if (!picked.length) {
+    // A window that starts past the end decodes nothing; say which unit is
+    // out of range instead of implying the file is broken.
+    let dur = meta?.duration || 0;
+    if (!dur) {
+      try { dur = (await probeVideo(source, { ffmpegPath })).duration || 0; } catch { /* no duration */ }
+    }
+    if (dur > 0 && start >= dur - 0.05) {
+      throw new Error(`window starts at ${tc(start)} but the file is ${tc(dur)} long`);
+    }
+    throw new Error('no frames could be decoded from this input');
+  }
+  // The cap is applied after the whole selection has run, so the header can
+  // report how many screens were actually there. Walking the rest of the grids
+  // costs one 84-block comparison per frame, which is nothing beside the decode.
+  const changed = picked.length;
+  const capped = changed > maxScreens;
+  if (capped) picked.length = maxScreens;
 
   const dir = mkdtempSync(join(tmpdir(), 'dsh-read-'));
   try {
@@ -636,6 +984,63 @@ export async function runRead(opts) {
     // One array, one count: the header, the note, the outline and every quoted
     // line come from the same list, so the numbers cannot disagree with the body.
     const { usable } = usableScreens(deduped);
+    const name = sourceTitle || input.split(/[\\/]/).pop();
+
+    if (!usable.length) {
+      // No text anywhere in the window: the information is a picture, not words.
+      // Decode a few frames and hand them over with the same answer instead of an
+      // empty document that forces the caller into a second round trip.
+      const t3 = Date.now();
+      const aspect = meta && meta.width && meta.height ? meta.width / meta.height : 16 / 9;
+      let shot = null;
+      try {
+        shot = await pictureFallback({
+          input: source, ffmpegPath, start, end: knownEnd, stamps, aspect, signal,
+        });
+      } catch { shot = null; }
+      timings.pictures = Date.now() - t3;
+      timings.total = Date.now() - wall;
+      const lines = [
+        `# ${name} — read as text · no readable text · ${stamps.length} keyframes · ${timings.total} ms`,
+        '',
+        `note: no readable text in ${changed} changed frames of ${stamps.length} sampled `
+          + `(${Math.round((timings.total / 1000) * 10) / 10} s) — handwriting, a camera pointed at a `
+          + 'screen rather than a capture, or no slides at all',
+      ];
+      if (shot) {
+        const first = shot.cells[0].frameT;
+        const lastOne = shot.cells[shot.cells.length - 1].frameT;
+        lines.push(`note: showing ${shot.cells.length} pictures instead (${tc(first)}–${tc(lastOne)}): `
+          + 'these frames are the evidence the file carries, so read them as a storyboard');
+      } else {
+        lines.push('note: the frames could not be decoded either — video_storyboard reports why');
+      }
+      lines.push('note: for words, pass transcriptFile (SRT, VTT or JSON) or set DSH_ASR_CMD '
+        + '— a file with an audio track is then read as a transcript');
+      const written = withExport(lines.join('\n'), [], opts.out);
+      const text = written.text;
+      return {
+        text,
+        screens: [],
+        outline: [],
+        wrote: written.wrote,
+        pictures: shot ? shot.cells.map((c) => ({ index: c.index, t: c.frameT })) : [],
+        png: shot ? shot.png : null,
+        sheet: shot ? { grid: shot.grid, bytes: shot.png.length } : null,
+        stats: {
+          keyframes: stamps.length,
+          changed,
+          capped,
+          maxScreens,
+          clustered: picked.length,
+          screens: 0,
+          pictures: shot ? shot.cells.length : 0,
+          chars: text.length,
+          furniture: cleaned.dropped.length,
+        },
+        timings,
+      };
+    }
     if (usable.length) {
       const last = usable[usable.length - 1];
       if (!(last.tEnd > last.t)) last.tEnd = knownEnd > last.t ? knownEnd : last.t + (dense || 1);
@@ -643,6 +1048,9 @@ export async function runRead(opts) {
     const heads = outline(usable);
     const head = `# ${sourceTitle || input.split(/[\\/]/).pop()} — read as text · ${usable.length} screens · ${stamps.length} keyframes · ${timings.total} ms`;
     const body = [head];
+    // Report the cap, not just its effect: a document that silently stops at
+    // screen 400 reads exactly like a video that had 400 screens.
+    for (const n of capNotes({ askedScreens, maxScreens, changed })) body.push('', `note: ${n}`);
     if (usable.length < 5) {
       // Say what was found and name the alternatives; do not tell the reader
       // their video is broken. Under three screens the old code also threw away
@@ -663,13 +1071,18 @@ export async function runRead(opts) {
       const span = s.tEnd > s.t + 2 ? `${tc(s.t)}–${tc(s.tEnd)}` : tc(s.t);
       body.push(`[${span}] ${s.text}`);
     }
-    const text = body.join('\n');
+    const written = withExport(body.join('\n'), screensAsItems(usable), opts.out);
+    const text = written.text;
     return {
       text,
       screens: usable,
       outline: usable.length ? heads : [],
+      wrote: written.wrote,
       stats: {
         keyframes: stamps.length,
+        changed,
+        capped,
+        maxScreens,
         clustered: picked.length,
         screens: usable.length,
         chars: text.length,
