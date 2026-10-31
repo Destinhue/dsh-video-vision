@@ -514,8 +514,8 @@ to run broadly, and it still does not say *where* to look.
 `video_outline` is that first question answered in rows. The file is cut into equal
 windows (4–60, default 24), each row prints the window's span, its cut count, the share of
 it that is speech, an eight-slice intensity bar and at most two tags — `dark`, `static`,
-`quiet`, `busy`, `talk` — and the tail of the answer names the windows worth opening with
-the exact `start`/`end` to open them with:
+`text`, `quiet`, `busy`, `talk` — and the tail of the answer names the windows worth opening
+with the exact `start`/`end` to open them with:
 
 ```
 dsh-video-vision-promo.mp4 · 00:57 · 13 cuts · speech 97% · 8 windows of 00:07
@@ -571,6 +571,38 @@ document that says `no readable text` instead of an empty one. The path this was
 is a real screen capture whose chat panel OCR'd into 37 screens of two-character stubs —
 that file still goes down the text path, because its "text" is garbage, not absent; the
 fallback is for files with no text at all.
+
+**Pictures that hold still while the marks move.** A third shape breaks the same
+assumption in a quieter way: a slide deck, a leaderboard, a quiz card — the frame is
+essentially constant and the thing that changes is a line of text. The cut detector sees
+nothing, because a caption costs 1–3 cells of a 12×7 block grid and a cut costs 35 % of it;
+the motion rail sees nothing for the same reason. So `video_outline` called every window
+`static`, `video_storyboard` produced one cell of 192 tokens, and any model that asked those
+two first concluded the file had nothing in it — while `video_read`, which samples on pixels,
+read eleven screens correctly.
+
+The fix is one more measurement on the pass that already exists: of the adjacent sample pairs
+whose change is small but non-zero, count them, take their density, and ask whether the
+activity sits in a few blocks or is spread over the frame. A subtitle swap moves three blocks;
+a slow pan moves all of them. The verdict is called only when all five hold —
+`duration ≥ 20 s`, `cuts === 0`, at least three such pairs, density under 0.15, and at least
+three quarters of the activity in the busiest quarter of the blocks — and the measured
+margins are wide: the 30 s repro scores density 0.036 and share 1.000, a 750-frame slow pan
+scores density 0.76, a strobing clip 0.90. Both stay `static`.
+
+What changes downstream is only the sentence and the tag. `video_outline` gains `text`
+beside `dark` and `static`, prints "24 of 24 windows keep their picture and redraw their
+marks — that is text, not a still frame", and its `next:` line names `video_read` instead of
+a window. `video_storyboard` keeps producing its cells — a sheet still says *when* things
+happen — but the index now opens with the same routing sentence. The four tool descriptions
+say which reader to call first. Measured on the repro: outline 0.79 s / 24 windows / zero
+image tokens, storyboard 1.17 s / 192 tokens, read 3.63 s / 12 screens.
+
+The reader itself had the same blind spot from the other side: its dense-mode gate compared
+12×7 block means, where one caption replacing another is a change of 0.000, so the frame
+2.4 s later was simply not sampled and the sentence it carried did not exist in the answer.
+The gate now also accepts a frame whose mean absolute pixel difference clears 0.5 — measured
+noise is 0.07, a caption swap is 1.59–3.09 — which is what brings the twelfth screen back.
 
 ## 15. A cell is never a smear
 

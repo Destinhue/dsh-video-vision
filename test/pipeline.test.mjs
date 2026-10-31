@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run, findFfmpeg, findFfprobe } from '../src/media.js';
-import { runStoryboard, windowNotes } from '../src/pipeline.js';
+import { runStoryboard, textMotionNote, windowNotes } from '../src/pipeline.js';
 import { keyframeGap, scanShots } from '../src/scan.js';
 
 const VENDOR = 'F:\\ai\\v4video\\vendor\\bin';
@@ -228,4 +228,11 @@ test('a forced keyframe pass says so in the manifest', async (t) => {
   assert.equal(out.scan.keyframes, true);
   assert.match(out.manifest, /note: analysis read keyframes only \(one every [\d.]+ s\)/);
   assert.match(out.manifest, /set DSH_SCAN_KEYFRAMES=off to decode every frame/);
+});
+test('the marks-move note is silent unless the scan proved it, and names the reader', () => {
+  assert.equal(textMotionNote(null), null);
+  const note = textMotionNote({ reason: 'the picture hardly changes; the marks on it do', events: 10 });
+  assert.match(note, /^the picture hardly changes; the marks on it do — /);
+  assert.match(note, /video_read reads those marks as text, at no image cost/);
+  assert.match(note, /the cells below still say when each stretch begins/);
 });

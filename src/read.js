@@ -47,6 +47,11 @@ export const READ_DEFAULTS = {
   // in time, so the gate only has to reject literally identical frames: a
   // 4-line subtitle strip is 2% of the frame and used to be dropped here
   denseChange: 0.004,
+  // ...and when even that gate is blind: two lines of text of similar weight
+  // average to the same block luma, so the grid reads a caption swap as no
+  // change at all. Measured on a caption clip, per-pixel luma difference over
+  // the 96x54 frame: identical frames 0.00-0.07, a new sentence 1.59-3.09.
+  denseDelta: 0.5,
   // how much of a pair of screens must share text bigrams to be the same screen
   textSimilarity: 0.55,
   maxScreens: 400,
@@ -172,9 +177,40 @@ export function cleanOcr(raw) {
   text = text.replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '$1');
   text = text.replace(/([\u3400-\u9fff])\s+(?=[，。、；：？！）】”’])/g, '$1');
   text = text.replace(/([（【“‘])\s+(?=[\u3400-\u9fff])/g, '$1');
+  // OCR splits digits inside Chinese prose: "第 1 0 句" is "第10句", "第 1 1 句"
+  text = joinSplitDigits(text);
+  // Chinese is written without space around its numbers, so "第 10 句" is 第10句
+  text = text.replace(/([\u3400-\u9fff])\s+(?=\d)/g, '$1');
+  text = text.replace(/(\d)\s+(?=[\u3400-\u9fff])/g, '$1');
+  // and a full-width mark never opens a word with a space
+  text = text.replace(/([，。、；：？！）】”’])\s+/g, '$1');
   // icon debris: a short run of numbers/symbols in front of Chinese prose
   text = stripLeadingJunk(text);
   return text.replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
+ * Join a digit run that OCR broke apart, but only inside Chinese prose.
+ *
+ * "第 1 0 句" is "第10句": no one types that space, the recogniser inserts it
+ * between glyphs it takes for separate tokens. A space between two numbers that
+ * is real — "1280 720", "2024 2025" — has no Chinese on either side of the run
+ * and is left alone.
+ */
+function joinSplitDigits(text) {
+  return text.replace(/(\d(?: \d)+)/g, (run, _m, offset, whole) => {
+    const before = whole.slice(0, offset);
+    const after = whole.slice(offset + run.length);
+    const hanBefore = /[\u3400-\u9fff]\s?$/.test(before);
+    const hanAfter = /^\s?[\u3400-\u9fff]/.test(after);
+    if (!hanBefore && !hanAfter) return run;
+    // Han next to the run says it is prose, but not that it was split: "分辨率
+    // 1280 720" is two real numbers. A shattered digit is one digit at a time, so
+    // parts longer than two digits are left as they were written.
+    const parts = run.split(' ');
+    if (parts.some((part) => part.length > 2)) return run;
+    return parts.join('');
+  });
 }
 
 /**
@@ -497,6 +533,26 @@ export function gridChange(a, b, delta = 10, dark = 12) {
 }
 
 /**
+ * Mean absolute per-pixel luminance difference between two rgb24 frames, 0-255.
+ *
+ * `gridChange` compares 12x7 block averages, which is the right question for
+ * 'is this a different screen' and the wrong one for 'did the marks change': a
+ * caption replaced by another caption of the same weight keeps every block
+ * average and reads as no change. This signal is what the text-flow gate adds.
+ */
+export function frameDelta(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (!n) return 0;
+  let sum = 0;
+  for (let i = 0; i < n; i += 3) {
+    const la = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2];
+    const lb = 0.299 * b[i] + 0.587 * b[i + 1] + 0.114 * b[i + 2];
+    sum += la > lb ? la - lb : lb - la;
+  }
+  return sum / (n / 3);
+}
+
+/**
  * Decode keyframes (or, on a short clip, one frame every `dense` seconds) into
  * 96x54 block grids with their presentation timestamps.
  *
@@ -518,13 +574,18 @@ async function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, 
       stdio: ['ignore', 'pipe', 'pipe'], signal,
     });
     const grids = [];
+    const mads = [];
+    let prev = null;
     let buf = Buffer.alloc(0);
     let err = '';
     const size = w * h * 3;
     child.stdout.on('data', (chunk) => {
       buf = Buffer.concat([buf, chunk]);
       while (buf.length >= size) {
-        grids.push(blockMeans(buf.subarray(0, size), w, h));
+        const frame = buf.subarray(0, size);
+        grids.push(blockMeans(frame, w, h));
+        mads.push(prev ? frameDelta(prev, frame) : 0);
+        prev = Buffer.from(frame);   // the concat above reuses its buffer
         buf = buf.subarray(size);
       }
     });
@@ -537,19 +598,19 @@ async function decodeKeyframes(ffmpegPath, input, { start = 0, end = 0, signal, 
       }
       const stamps = [];
       for (const m of err.matchAll(/pts_time:([0-9.]+)/g)) stamps.push(Number(m[1]));
-      resolve({ grids, stamps, err });
+      resolve({ grids, mads, stamps, err });
     });
   });
 
   let fpsArgs = await fpsModeArgs(ffmpegPath);
   try {
     const out = await attempt(fpsArgs);
-    return { grids: out.grids, stamps: out.stamps, fpsMode: fpsArgs[0] };
+    return { grids: out.grids, mads: out.mads, stamps: out.stamps, fpsMode: fpsArgs[0] };
   } catch (error) {
     if (!/Unrecognized option/i.test(error.message)) throw error;
     fpsArgs = altFpsModeArgs(fpsArgs);
     const out = await attempt(fpsArgs);
-    return { grids: out.grids, stamps: out.stamps, fpsMode: fpsArgs[0] };
+    return { grids: out.grids, mads: out.mads, stamps: out.stamps, fpsMode: fpsArgs[0] };
   }
 }
 
@@ -868,7 +929,7 @@ export async function runRead(opts) {
     if (span > 0) knownEnd = start + span;
     if (span > 1 && span <= READ_DEFAULTS.denseUnder) dense = READ_DEFAULTS.denseSeconds;
   }
-  const { grids, stamps } = await decodeKeyframes(ffmpegPath, source, { start, end, signal, dense });
+  const { grids, stamps, mads } = await decodeKeyframes(ffmpegPath, source, { start, end, signal, dense });
   timings.scan = Date.now() - t0;
   timings.dense = dense;
 
@@ -876,7 +937,13 @@ export async function runRead(opts) {
   let last = -1;
   for (let i = 0; i < grids.length; i++) {
     const gate = dense ? READ_DEFAULTS.denseChange : READ_DEFAULTS.screenChange;
-    if (last < 0 || gridChange(grids[last], grids[i]) >= gate) {
+    // The block grid is the cheap question; on a caption that swaps in place it
+    // answers 'nothing changed' and drops the sentence entirely. In the dense
+    // pass the pixels are compared too, and either signal opens the gate.
+    const moved = last < 0
+      || gridChange(grids[last], grids[i]) >= gate
+      || (dense > 0 && (mads[i] || 0) >= READ_DEFAULTS.denseDelta);
+    if (moved) {
       picked.push(i);
       last = i;
     }
@@ -954,7 +1021,6 @@ export async function runRead(opts) {
 
     const t2 = Date.now();
     const recognised = await ocrDirectory(ocrDir, { signal });
-    if (process.env.DSH_READ_DEBUG) { const k0=[...recognised.keys()][0]; const r0=recognised.get(k0); console.error('[dbg] rec0=%s lines=%d text0=%s', k0, (r0.lines||[]).length, JSON.stringify((r0.lines||[]).slice(0,2))); }
     timings.ocr = Date.now() - t2;
 
     const raw = [];
@@ -974,6 +1040,12 @@ export async function runRead(opts) {
       // a frame of loose strokes is not. The header says when little was found.
       if (!readableScreen(s.lines)) continue;
       screens.push({ t: s.t, text, lines: s.lines });
+    }
+    if (process.env.DSH_READ_DEBUG) {
+      // Support affordance: print which samples the gate opened, so a missing
+      // sentence can be traced to the gate instead of blamed on the OCR.
+      console.error('[read] sampled %d of %d frames at %s', picked.length, grids.length,
+        picked.map((i) => (start + (stamps[i] ?? 0)).toFixed(1)).join(' '));
     }
     const merged = mergeScreens(screens, { novelLine: Boolean(dense) });
     // a second pass at a looser threshold: the leftover duplicates are the ones
@@ -1058,9 +1130,8 @@ export async function runRead(opts) {
       const found = usable.length === 1 ? 'one screen' : `${usable.length} screens`;
       body.push('', `note: ${found} carried readable text out of ${raw.length} sampled `
         + `(${Math.round((timings.total / 1000) * 10) / 10} s). Few screens usually means one of: `
-        + 'handwriting, a camera pointed at a screen rather than a capture, no slides at all, '
-        + 'or a fixed layout whose only change is a subtitle line -- video_storyboard shows the '
-        + 'pictures, and the audio summary still applies.');
+        + 'handwriting, a camera pointed at a screen rather than a capture, or no slides at '
+        + 'all -- video_storyboard shows the pictures, and the audio summary still applies.');
     }
     if (heads.length > 2) {
       body.push('', '## outline');

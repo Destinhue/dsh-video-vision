@@ -9,6 +9,8 @@ import {
   classifyJump,
   summarizeShots,
   keyframeMode,
+  microMotionStats,
+  detectTextMotion,
 } from '../src/scan.js';
 
 const BW = 4;
@@ -262,4 +264,67 @@ test('the keyframe pass is taken only when there is something to skip', () => {
   assert.match(long.reason, /4\.9 s/);
   // a measured gap of exactly the floor is already worth skipping
   assert.equal(keyframeMode({ duration: 7200, gap: 1 }).keyframes, true);
+});
+/* ---------------------------------------------- text motion vs a still picture */
+
+/**
+ * A caption clip as the scanner sees it: the picture is a flat field that only
+ * ever brightens by a step the block comparison ignores, and a six-block band in
+ * the same corner swaps at a handful of pairs.
+ */
+function captionBlocks({ bw = 12, bh = 7, frames = 60, swaps = [5, 15, 25, 35, 45, 55], band = 6 } = {}) {
+  const total = bw * bh;
+  const blocks = new Uint8Array(total * frames);
+  const at = new Set(swaps);
+  let caption = 0;
+  for (let f = 0; f < frames; f++) {
+    if (f > 0 && at.has(f - 1)) caption += 1;
+    const base = 40 + 8 * caption;                 // a shade the block gate ignores
+    for (let k = 0; k < total; k++) blocks[f * total + k] = base;
+    if (caption % 2 === 1) for (let k = 0; k < band; k++) blocks[f * total + k] = 200;
+  }
+  return { blocks, bw, bh, frames };
+}
+
+/** A pan: every pair moves, over different blocks each time. */
+function panBlocks({ bw = 12, bh = 7, frames = 60, band = 4 } = {}) {
+  const total = bw * bh;
+  const blocks = new Uint8Array(total * frames);
+  for (let f = 0; f < frames; f++) {
+    for (let k = 0; k < total; k++) blocks[f * total + k] = 40;
+    for (let j = 0; j < band; j++) blocks[f * total + ((f * band + j) % total)] = 200;
+  }
+  return { blocks, bw, bh, frames };
+}
+
+test('microMotionStats sees marks that change while the picture does not', () => {
+  const { blocks, bw, bh, frames } = captionBlocks();
+  const micro = microMotionStats({ blocks, bw, bh, frames });
+  assert.equal(micro.pairs, frames - 1);
+  assert.equal(micro.events, 6, 'one event per caption swap');
+  assert.ok(micro.density < 0.15, 'a caption swaps on a few pairs, not on every one');
+  assert.equal(micro.medFrac.toFixed(3), (6 / 84).toFixed(3), 'six of eighty-four blocks moved');
+  assert.ok(micro.topShare > 0.99, 'and always those six: the mark band, not the camera');
+});
+
+test('a pan moves a little on every pair and never concentrates', () => {
+  const { blocks, bw, bh, frames } = panBlocks();
+  const micro = microMotionStats({ blocks, bw, bh, frames });
+  assert.ok(micro.density > 0.9, 'every pair moves');
+  assert.ok(micro.topShare < 0.5, 'and it wanders over the whole grid');
+  assert.equal(detectTextMotion({ micro, cuts: [], duration: 30 }), null);
+});
+
+test('detectTextMotion only fires on a cutless clip whose marks are the content', () => {
+  const { blocks, bw, bh, frames } = captionBlocks();
+  const micro = microMotionStats({ blocks, bw, bh, frames });
+  const hit = detectTextMotion({ micro, cuts: [], duration: 30 });
+  assert.ok(hit, 'the caption clip is text, not a still');
+  assert.equal(hit.reason, 'the picture hardly changes; the marks on it do');
+
+  assert.equal(detectTextMotion({ micro, cuts: [{ t: 4 }], duration: 30 }), null, 'a cut means there is picture to see');
+  assert.equal(detectTextMotion({ micro, cuts: [], duration: 12 }), null, 'too short to call the picture static');
+  assert.equal(detectTextMotion({ micro: null, cuts: [], duration: 30 }), null);
+  assert.equal(detectTextMotion({ micro: { ...micro, events: 2 }, cuts: [], duration: 30 }), null,
+    'two swaps is not a clip about its text');
 });

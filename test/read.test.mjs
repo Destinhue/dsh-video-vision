@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cleanOcr, isChrome, isChatter, screenText, screenLines, contentChars, wordChars, dropBoilerplate, readableScreen,
-  textSimilarity, mergeScreens, outline, gridChange, READ_DEFAULTS, capNotes,
+  textSimilarity, mergeScreens, outline, gridChange, frameDelta, READ_DEFAULTS, capNotes,
   fallbackTimes, FALLBACK_CELLS,
 } from '../src/read.js';
 
@@ -244,4 +244,36 @@ test('fallbackTimes survives a window shorter than the cell count', () => {
 
 test('the fallback sheet is six cells unless asked otherwise', () => {
   assert.equal(FALLBACK_CELLS, 6);
+});
+test('cleanOcr joins digits that OCR broke apart inside Chinese prose', () => {
+  // The reported case: "第 1 0 句" and "第 1 1 句" came out with the tens and the
+  // units as separate tokens, so a numbered list read as a column of figures.
+  assert.equal(cleanOcr('第 1 0 句：四 十 秒 的 视 频'), '第10句：四十秒的视频');
+  assert.equal(cleanOcr('第 1 1 句'), '第11句');
+  // Digits are written without a space beside Chinese, even when they were not split.
+  assert.equal(cleanOcr('第 3 句'), '第3句');
+  assert.equal(cleanOcr('共 一 百 零 八 个 格 子'), '共一百零八个格子');
+});
+
+test('cleanOcr leaves real numbers alone', () => {
+  // Two numbers separated by a space are two numbers: only a shattered digit
+  // (one or two glyphs per part) is evidence that the recogniser split a token.
+  // Chinese and its numbers close up; the gap between two numbers stays.
+  assert.equal(cleanOcr('分辨率 1280 720 像素'), '分辨率1280 720像素');
+  assert.equal(cleanOcr('1280 720'), '1280 720');
+  // Two numbered items stay two numbers: only a shattered digit is joined.
+  assert.equal(cleanOcr('版 本 2024 2025 两 个'), '版本2024 2025两个');
+});
+
+test('frameDelta sees a caption swap the block grid reports as no change', () => {
+  const size = 8 * 3;
+  const a = Buffer.alloc(size, 0);
+  const b = Buffer.alloc(size, 0);
+  // One frame where two of eight pixels went white: the block averages barely
+  // move, the pixels do.
+  b[0] = 255; b[3] = 255; b[6] = 255;
+  assert.equal(frameDelta(a, a), 0);
+  const d = frameDelta(a, b);
+  assert.ok(d > 0.5 && d < 100, `a caption swap measures ${d}, above the measured noise ceiling`);
+  assert.equal(frameDelta(a, Buffer.alloc(0)), 0, 'nothing to compare is not a change');
 });

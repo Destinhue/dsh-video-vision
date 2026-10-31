@@ -152,6 +152,16 @@ function cacheSet(key, value) {
  * @param {boolean} [opts.band]        draw the audio band under the grid
  * @param {AbortSignal} [opts.signal]
  */
+/**
+ * The sentence a storyboard index prints when the scan says the marks are the
+ * content. Exported so the wording can be tested without decoding a clip.
+ */
+export function textMotionNote(textMotion) {
+  if (!textMotion) return null;
+  return `${textMotion.reason} — video_read reads those marks as text, at no image cost; `
+    + 'the cells below still say when each stretch begins';
+}
+
 export async function runStoryboard(opts) {
   const t = {};
   const started = Date.now();
@@ -221,6 +231,10 @@ export async function runStoryboard(opts) {
     cacheSet(key, analysis);
   }
   const { scan, audio } = analysis;
+  // The sheet is still the right map of *when*; it is the wrong place to look
+  // for *what*. Say so here, before the model concludes the clip is empty.
+  const textNote = textMotionNote(scan.textMotion);
+  if (textNote) notes.push(textNote);
   if (scan.keyframes) {
     const gap = analysis.keyframeGap;
     notes.push(`analysis read keyframes only${gap ? ` (one every ${gap.toFixed(1)} s)` : ''} — `
@@ -658,6 +672,8 @@ export async function runOutline(opts) {
     effFps: scan.effFps || probe.fps || 25,
     cuts: scan.cuts || [],
     motion: scan.motion,
+    micro: scan.micro,
+    textMotion: scan.textMotion,
     vectors: scan.vectors,
     speech: audio.speech || [],
     activity: audio.activity || [],

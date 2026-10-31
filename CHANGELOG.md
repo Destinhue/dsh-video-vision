@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.4.1 — the marks move, the picture does not
+
+- **A slide deck is no longer reported as an empty clip.** A clip whose frame
+  is nearly constant and whose *marks* keep changing (captions, a leaderboard,
+  a subtitle-only cut) used to come back as `static` from `video_outline`, as
+  one `192`-token cell from `video_storyboard`, and as "nothing much here" to
+  any model that called them first. `scanShots` now measures the local motion
+  that a 12×7 block grid averages away — event count, density, and how much of
+  the activity sits in the busiest quarter of the blocks — and only calls it
+  when the picture holds still and no cut was found: `duration ≥ 20 s`,
+  `cuts === 0`, `events ≥ 3`, `density < 0.15`, `busiest-quarter share ≥ 0.75`.
+  A slow pan (density 0.76) and a strobing clip (0.90) are excluded by those
+  last two; the 30 s repro is the only clip in the corpus that passes.
+  `video_outline` gains the tag `text`, says `24 of 24 windows keep their
+  picture and redraw their marks`, and points at `video_read`;
+  `video_storyboard` prints the same sentence in its index; the four tool
+  descriptions now say which of the two readers to call.
+- **`video_read` no longer drops a screen that only swaps its wording.** The
+  sampler compared 12×7 block means, where one line of text replacing another
+  is a change of 0.000, so a frame 2.4 s after the previous one was skipped and
+  its sentence was lost (11 screens for a 12-sentence clip). Dense mode now
+  also samples on the frame's mean absolute pixel difference
+  (`denseDelta: 0.5`; measured noise 0.07 against 1.59–3.09 per sentence), so
+  the repro reads 12 screens with `[00:18–00:20] 第9句` back where it belongs.
+  `frameDelta()` is exported.
+- **OCR digits are no longer split or glued.** `第 1 0 句` becomes `第10句`,
+  Chinese-to-digit spacing is removed, and full-width punctuation no longer
+  keeps the space that follows it — while `分辨率 1280 720` stays untouched.
+  The note printed when a file yields fewer than five screens no longer lists
+  "a fixed layout whose only change is a subtitle line", which is exactly what
+  the sampler above now reads.
+
+### Measured
+
+- The 30 s text clip that motivated the fix is the only corpus-adjacent file
+  that trips the new rule, and it trips all three calls differently now:
+  `video_outline` 0.79 s / 24 windows / 24 tagged `text` / 0 vision tokens;
+  `video_storyboard` 1.17 s / 1 cell / 192 tokens, with the routing line on the
+  fourth row of the index; `video_read` 3.63 s / **12 screens** (was 11) /
+  0 image tokens. A slow pan of 750 frames scores density 0.76 and stays
+  `static`; the flicker clip scores 0.90 and stays `static` too.
+
+### Tests
+
+**324** (was 237): notes for every clamp, the `dedupe:"global"` fold, keyframe
+mode, audio-only probe/read/probe-refusal, the six-picture fallback, SRT/VTT/text
+export, the tesseract TSV parser and reading order, CJK word joining, ASR chunk
+planning and silence points, the whole `video_outline` path on a real clip,
+the micro-motion verdict and its exclusions, the `text` tag and the routing
+note, `frameDelta()` and the digit repair, and the plugin registering five
+tools. 322 pass, 2 skip on a host without a second ffprobe or tesseract.
+`bin/selfcheck.mjs --smoke --host`: 40/40.
+
 ## 1.4.0
 
 ### Added — two tools that answer without a picture

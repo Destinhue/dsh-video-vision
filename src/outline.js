@@ -24,13 +24,26 @@ export const OUTLINE_DEFAULTS = {
   // Eight characters per row: enough to see that a window has two busy stretches
   // and a pause between them, short enough to keep the table scannable.
   sparkWidth: 8,
+  // The same band scan.js uses for "a mark moved, the picture did not". Kept in
+  // step by hand: this module is pure and imports nothing, so the shape of the
+  // answer can be tested without a video or a scan.
+  microMin: 0.005,
+  microMax: 0.15,
 };
 
 /** Blocks, weakest to strongest. A row with no movement is all ▁. */
 const RAMP = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
-/** Tags are printed in this order, at most two per row. */
-const TAG_ORDER = ['dark', 'static', 'quiet', 'busy', 'talk'];
+/**
+ * Tags are printed in this order, at most two per row.
+ *
+ * `text` sits beside `static` because they are the two halves of the same
+ * question: a window whose picture does not change either does nothing at all,
+ * or moves nothing but its marks. Saying "static" about a lecture slide that
+ * re-draws a line of its own text is the one answer that sends the next call to
+ * the wrong tool.
+ */
+const TAG_ORDER = ['dark', 'static', 'text', 'quiet', 'busy', 'talk'];
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -100,7 +113,8 @@ export function spanOverlap(spans, t0, t1) {
  * mean luma (a black stretch is worth its own tag).
  *
  * @param {{plan:object, effFps?:number, cuts?:Array, motion?:Uint8Array|null,
- *   vectors?:object|null, speech?:Array, activity?:Array, silence?:Array}} opts
+ *   vectors?:object|null, speech?:Array, activity?:Array, silence?:Array,
+ *   micro?:{frac:Float32Array}|null, textMotion?:object|null}} opts
  */
 export function outlineRows({
   plan,
@@ -111,6 +125,8 @@ export function outlineRows({
   speech = [],
   activity = [],
   silence = [],
+  micro = null,
+  textMotion = null,
 } = {}) {
   const rate = Number(effFps) > 0 ? Number(effFps) : 25;
   const frames = motion ? motion.length : (vectors?.bright?.length ?? 0);
@@ -128,6 +144,21 @@ export function outlineRows({
     let sum = 0;
     for (let i = i0; i < i1; i += 1) sum += arr[i];
     return i1 > i0 ? sum / (i1 - i0) : 0;
+  };
+
+  // Per-window share of "a sliver of the picture moved" pairs, and how many of
+  // them there were. Read straight off the scan's own per-pair measurement.
+  const microOf = (a, b) => {
+    const arr = micro?.frac;
+    if (!arr || !arr.length) return { mean: 0, events: 0 };
+    const [i0, i1] = range(a, b);
+    let sum = 0, n = 0, events = 0;
+    for (let i = i0; i < i1 && i < arr.length; i += 1) {
+      sum += arr[i];
+      n += 1;
+      if (arr[i] >= OUTLINE_DEFAULTS.microMin && arr[i] < OUTLINE_DEFAULTS.microMax) events += 1;
+    }
+    return { mean: n ? sum / n : 0, events };
   };
 
   const rows = [];
@@ -162,9 +193,23 @@ export function outlineRows({
       bar += RAMP[step];
     }
 
+    const microStats = microOf(w.t0, w.t1);
+
     const tags = [];
     if (span >= 1 && bright > 0 && bright < 28) tags.push('dark');
-    if (cutCount === 0 && motionShare < 0.03 && speechShare < 0.05) tags.push('static');
+    // A window whose picture stays put has two possible truths, and they lead to
+    // two different tools: nothing happens at all (static), or the marks on the
+    // picture keep being redrawn (text). Checking the marks first means a slide
+    // that re-writes a line of itself is never called still.
+    //
+    // The window's own sample is a thin one — a 1 s window holds one or two
+    // adjacent pairs, and a sentence that swaps between them leaves the next
+    // window looking untouched. So a file-wide verdict that the marks are the
+    // content outranks the local count; without it the repro clip alternated
+    // 'text' and 'static' down a file that is nothing but text.
+    const marksMove = Boolean(textMotion) || microStats.events > 0;
+    if (cutCount === 0 && motionShare < 0.03 && marksMove) tags.push('text');
+    else if (cutCount === 0 && motionShare < 0.03 && speechShare < 0.05) tags.push('static');
     if (silentShare >= 0.6) tags.push('quiet');
     if (cutsPerMin >= 4 || motionShare >= 0.45) tags.push('busy');
     if (speechShare >= 0.45) tags.push('talk');
@@ -191,6 +236,8 @@ export function outlineRows({
       activityShare: +activityShare.toFixed(3),
       silentShare: +silentShare.toFixed(3),
       bright: Math.round(bright),
+      microShare: +microStats.mean.toFixed(3),
+      microEvents: microStats.events,
       bar,
       score,
       tags: tags.sort((a, b) => TAG_ORDER.indexOf(a) - TAG_ORDER.indexOf(b)),
@@ -228,6 +275,9 @@ export function outlineReport({
   hasAudio = false,
   keyframeGap = null,
   notes = [],
+  // Windows whose picture stays put while their marks move. Counted here rather
+  // than passed in when the rows already say it.
+  textWindows = rows.filter((r) => (r.tags ?? []).includes('text')).length,
 } = {}) {
   const lines = [];
   const bits = [
@@ -246,6 +296,14 @@ export function outlineReport({
     lines.push(`note: analysis read keyframes only (one every ${keyframeGap.toFixed(1)} s) — a change shorter than that gap is not seen; set DSH_SCAN_KEYFRAMES=off to decode every frame`);
   }
   for (const note of notes) lines.push(`note: ${note}`);
+  if (textWindows > 0) {
+    // The row tags say which windows, this says what to do about them: the one
+    // mistake this map can cause is reading "no cuts" as "nothing here".
+    const one = textWindows === 1;
+    lines.push(`note: ${textWindows} of ${rows.length} ${plural(rows.length, 'window')} `
+      + `${one ? 'keeps its picture and redraws its marks' : 'keep their picture and redraw their marks'} — `
+      + 'that is text, not a still frame: video_read reads those marks as text, and it costs no image tokens');
+  }
 
   for (const r of rows) {
     const parts = [`${String(r.index).padStart(4)}  ${outlineClock(r.t0)}-${outlineClock(r.t1)}  ${r.bar}  cuts ${r.cuts}`];
@@ -258,7 +316,9 @@ export function outlineReport({
   const best = rows.reduce((m, r) => Math.max(m, r.score), 0);
   const uniform = !rows.length || best < 0.05;
   const picks = uniform ? [] : outlineHighlights(rows, top);
-  if (uniform) {
+  if (uniform && textWindows > 0) {
+    lines.push('note: nothing stands out to look at — the picture hardly changes while the marks on it do, so ask video_read for the words instead of video_storyboard for the pictures');
+  } else if (uniform) {
     lines.push('note: nothing stands out — the picture and the sound barely change over the whole file, so any window looks like any other');
   } else if (picks.length) {
     const where = picks.map((p) => {
@@ -273,9 +333,17 @@ export function outlineReport({
   if (pick) {
     const a = Math.round(pick.t0);
     const b = Math.round(pick.t1);
-    lines.push(hasAudio
-      ? `next: video_storyboard start=${a} end=${b} for the pictures, video_read start=${a} end=${b} for the words`
-      : `next: video_storyboard start=${a} end=${b} — the pictures of the window above`);
+    // With no cuts and no movement anywhere, the pictures hold nothing the mark
+    // layer does not: send the next call where the content actually is.
+    if (textWindows > 0 && !picks.length) {
+      // No window is better than another: the whole file is text, and the read's own
+      // timecodes are the only structure it has to offer.
+      lines.push('next: video_read — the whole file is like this; it reads the marks, spends no image tokens, and the timecodes it prints are the structure');
+    } else {
+      lines.push(hasAudio
+        ? `next: video_storyboard start=${a} end=${b} for the pictures, video_read start=${a} end=${b} for the words`
+        : `next: video_storyboard start=${a} end=${b} — the pictures of the window above`);
+    }
   }
   return lines.join('\n');
 }

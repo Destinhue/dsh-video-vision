@@ -89,6 +89,21 @@ export const SCAN_DEFAULTS = {
   // granularity instead of at frame granularity.
   keyframeMinDuration: 600,
   keyframeMinGap: 1.0,
+  // ---- movement that never moves the picture ----------------------------
+  //
+  // A caption swapping for the next caption moves one or two blocks and
+  // leaves the rest of the grid pixel-identical: below `eventMinFrac`, below
+  // `cutMinFrac`, and therefore invisible to every rule above. Such a file
+  // used to be described as "static", which is the one thing it is not. The
+  // numbers below separate it from the two things that look similar and are
+  // not: a slow pan (moves a little on *every* pair) and a flicker (ditto,
+  // with more of the frame going dark).
+  microMinFrac: 0.005,     // a pair that moved less than this moved nothing
+  microMaxFrac: 0.15,      // the widest move still counted as "a mark, not a shot"
+  microMinEvents: 3,       // a handful of such moves, not one
+  microMaxDensity: 0.15,   // share of pairs that may move: above this the picture moves
+  microTopShare: 0.75,     // how much of the movement the busiest quarter of the grid carries
+  microMinDuration: 20,    // seconds; shorter clips are not judged at all
 };
 
 
@@ -250,7 +265,7 @@ export async function scanShots(opts) {
       ...base, scores: new Float32Array(0), pairParts: null, cuts: [],
       vectors: emptyVectors(0), blocks: new Uint8Array(0), chromaBlocks: new Int8Array(0), stats: null,
       summary: { frames: 0, shots: 0, medianShot: 0, cuts: 0 }, degraded: 'empty', motion: null,
-      overlays: [], lights: [],
+      overlays: [], lights: [], micro: null, textMotion: null,
     };
   }
 
@@ -261,6 +276,13 @@ export async function scanShots(opts) {
     score: pairs.score, blocks: analyzed.blocks, chromaBlocks: analyzed.chromaBlocks,
     stats, effFps, start, frames: n,
   });
+
+  // Movement that moves no picture: measured once, printed only when it decides
+  // which tool the next call should use.
+  const micro = microMotionStats({
+    blocks: analyzed.blocks, bw: SCAN_DEFAULTS.blockCols, bh: SCAN_DEFAULTS.blockRows, frames: n,
+  });
+  const textMotion = detectTextMotion({ micro, cuts, duration });
 
   return {
     ...base,
@@ -276,6 +298,8 @@ export async function scanShots(opts) {
     summary: summarizeShots(cuts, duration, effFps),
     degraded: assessDegraded({ duration, cuts, vectors: analyzed.vectors, cutCount: cuts.length }),
     motion,
+    micro,
+    textMotion,
   };
 }
 
@@ -752,6 +776,106 @@ function findSoftTransitions({ adjusted, blocks, bw, bh, n, frames, effFps, star
     });
   }
   return out;
+}
+
+/**
+ * Movement that never moves the picture: one caption swapping for the next.
+ *
+ * Pure, so the judgement can be tested without a video. For every adjacent pair
+ * of sampled frames it measures how much of the 12x7 grid changed at all, then
+ * looks only at the pairs that changed *a little* (between `microMinFrac` and
+ * `microMaxFrac` of the grid) and asks three questions:
+ *
+ *   - how many there were, and how thinly they are spread over the clip
+ *     (`events`, `density`): a slow pan moves a little on *every* pair, a
+ *     caption moves a little on a handful of them;
+ *   - whether the movement sits in the same few blocks each time
+ *     (`topShare`): text is drawn in one band and stays there, camera motion
+ *     wanders over the grid;
+ *   - how much of the grid those moves touched (`medFrac`): a caption is a
+ *     sliver of the picture, a dissolve is not.
+ *
+ * @param {{blocks:Uint8Array, bw:number, bh:number, frames?:number, delta?:number}} opts
+ * @returns {{frac:Float32Array, events:number, density:number, medFrac:number,
+ *   medBlocks:number, topShare:number, pairs:number}}
+ */
+export function microMotionStats({ blocks, bw, bh, frames, delta = SCAN_DEFAULTS.blockDelta } = {}) {
+  const total = Math.max(1, bw * bh);
+  const pairs = Math.max(0, Math.min(frames ?? Math.floor(blocks.length / total), Math.floor(blocks.length / total)) - 1);
+  const frac = new Float32Array(pairs);
+  const perBlock = new Float32Array(total);
+  const events = [];
+  let lit = 0;
+  for (let i = 0; i < pairs; i++) {
+    const a = i * total;
+    const b = (i + 1) * total;
+    let moved = 0;
+    for (let k = 0; k < total; k++) {
+      if (Math.abs(blocks[a + k] - blocks[b + k]) > delta) moved += 1;
+    }
+    frac[i] = moved / total;
+    if (frac[i] >= SCAN_DEFAULTS.microMinFrac && frac[i] < SCAN_DEFAULTS.microMaxFrac) {
+      events.push(i);
+      for (let k = 0; k < total; k++) {
+        if (Math.abs(blocks[a + k] - blocks[b + k]) > delta) { perBlock[k] += 1; lit += 1; }
+      }
+    }
+  }
+  const median = (arr) => {
+    if (!arr.length) return 0;
+    const s = Float32Array.from(arr).sort();
+    return s[s.length >> 1];
+  };
+  // Concentration: how much of all the movement the busiest quarter of the grid
+  // carries. Text is one band -- a quarter of eighty-four blocks holds nearly
+  // all of it. A pan moves every block, so the share falls towards a quarter.
+  let topShare = 0;
+  if (lit > 0) {
+    const sorted = Float32Array.from(perBlock).sort().reverse();
+    const keep = Math.max(1, Math.round(total / 4));
+    let top = 0;
+    for (let k = 0; k < keep; k++) top += sorted[k];
+    topShare = top / lit;
+  }
+  return {
+    frac,
+    pairs,
+    events: events.length,
+    density: pairs ? events.length / pairs : 0,
+    medFrac: median(events.map((i) => frac[i])),
+    medBlocks: median(events.map((i) => frac[i] * total)),
+    topShare,
+  };
+}
+
+/**
+ * Is this clip *about* its text rather than its pictures?
+ *
+ * The answer only ever gets printed to send the next call somewhere else, so it
+ * is deliberately conservative: no cut at all over the whole clip, a handful of
+ * small moves concentrated in one band of the picture, and long enough that "the
+ * picture does not change" is a useful thing to say about it.
+ *
+ * @param {{micro?:object|null, cuts?:Array, duration?:number}} opts
+ * @returns {null|{events:number, density:number, medFrac:number, topShare:number,
+ *   reason:string}}
+ */
+export function detectTextMotion({ micro = null, cuts = [], duration = 0 } = {}) {
+  if (!micro || !micro.pairs) return null;
+  const d = SCAN_DEFAULTS;
+  if (!(duration >= d.microMinDuration)) return null;
+  if ((cuts?.length ?? 0) > 0) return null;
+  if (micro.events < d.microMinEvents) return null;
+  if (micro.density >= d.microMaxDensity) return null;
+  if (micro.topShare < d.microTopShare) return null;
+  if (micro.medFrac > d.microMaxFrac) return null;
+  return {
+    events: micro.events,
+    density: +micro.density.toFixed(3),
+    medFrac: +micro.medFrac.toFixed(3),
+    topShare: +micro.topShare.toFixed(3),
+    reason: 'the picture hardly changes; the marks on it do',
+  };
 }
 
 export function summarizeShots(cuts, duration, effFps) {

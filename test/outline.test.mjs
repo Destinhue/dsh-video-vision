@@ -175,6 +175,48 @@ test('outlineReport says so when nothing stands out, and when it capped', () => 
   assert.match(text, /^next: video_storyboard start=0 end=15/m);
 });
 
+test('a window whose marks move is called text, not static', () => {
+  const plan = planOutline({ duration: 60, windows: 4 });
+  const motion = new Uint8Array(60);            // the picture never moves
+  const frac = new Float32Array(60);
+  frac[20] = 0.05;                             // one caption swap inside window 2
+  const rows = outlineRows({ plan, effFps: 1, motion, micro: { frac } });
+  assert.ok(rows[0].tags.includes('static'), 'window 1 really is still');
+  assert.ok(rows[1].tags.includes('text'), 'window 2 redraws its marks');
+  assert.equal(rows[1].microEvents, 1);
+  assert.ok(!rows[1].tags.includes('static'), 'and not both at once');
+});
+
+test('a file-wide text verdict outranks the thin per-window count', () => {
+  const plan = planOutline({ duration: 30, windows: 24 });
+  const motion = new Uint8Array(30);
+  // One swap every 2.4 s: most one-second windows hold no pair of their own.
+  const frac = new Float32Array(30);
+  for (let i = 0; i < 30; i += 2) frac[i] = 0.06;
+  const rows = outlineRows({ plan, effFps: 1, motion, micro: { frac }, textMotion: { reason: 'x' } });
+  assert.ok(rows.every((r) => r.tags.includes('text')), 'every window is text');
+  assert.ok(rows.every((r) => !r.tags.includes('static')), 'none of them is a still');
+});
+
+test('outlineReport says which windows are marks, and sends the next call to read', () => {
+  const plan = planOutline({ duration: 30, windows: 4 });
+  const rows = plan.windows.map((w) => ({
+    index: w.index, t0: w.t0, t1: w.t1, span: w.t1 - w.t0, cuts: 0, cutsPerMin: 0,
+    motionShare: 0, speechShare: 0, activityShare: 0, silentShare: 0, bright: 128,
+    microShare: 0.06, microEvents: 1, bar: '▁'.repeat(OUTLINE_DEFAULTS.sparkWidth),
+    score: 0, tags: ['text'],
+  }));
+  const text = outlineReport({ title: 'captions.mp4', duration: 30, plan, rows, totalCuts: 0, hasAudio: false });
+  assert.match(text, /note: 4 of 4 windows keep their picture and redraw their marks/);
+  assert.match(text, /that is text, not a still frame: video_read reads those marks as text/);
+  assert.match(text, /note: nothing stands out to look at — the picture hardly changes while the marks on it do/);
+  assert.match(text, /^next: video_read — the whole file is like this/m);
+  assert.ok(!/watch first:/.test(text), 'no window leads; they are all the same thing');
+  // A one-line file is the same sentence, singular.
+  const single = outlineReport({ title: 'c.mp4', duration: 1, plan, rows: rows.slice(0, 1), totalCuts: 0, hasAudio: false });
+  assert.match(single, /note: 1 of 1 window keeps its picture and redraws its marks/);
+});
+
 test('the whole outline of a real clip is one call and one picture-free answer', async (t) => {
   const ffmpegPath = await resolveTool('ffmpeg.exe', 'DSH_FFMPEG_PATH', findFfmpeg);
   if (!ffmpegPath) return t.skip('no ffmpeg binary on this machine');

@@ -226,10 +226,14 @@ no image, no vision tokens.)
 
 Each row is one window: cuts, the share of it that is speech, an intensity bar
 (eight slices, height = cuts, motion, speech and loud events), and at most two
-tags — `dark`, `static`, `quiet`, `busy`, `talk`. `watch first` ranks by how
-much changes on screen first and how much is said second; `next` carries those
-numbers into the call that actually opens a window. Nothing is decoded twice:
-the same analysis pass serves the storyboard of the chosen window.
+tags — `dark`, `static`, `text`, `quiet`, `busy`, `talk`. `static` and `text`
+are not the same answer: a clip whose frame barely moves while its captions keep
+swapping is tagged `text`, and the answer says so in a `note:` and points at
+`video_read` instead of leaving a model to conclude the file is empty.
+`watch first` ranks by how much changes on screen first and how much is said
+second; `next` carries those numbers into the call that actually opens a window.
+Nothing is decoded twice: the same analysis pass serves the storyboard of the
+chosen window.
 
 | argument | meaning |
 | --- | --- |
