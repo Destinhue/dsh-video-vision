@@ -154,6 +154,11 @@ The plugin has **no runtime dependencies**. It needs `ffmpeg`, and uses `ffprobe
 when present (without it, metadata is parsed from the `ffmpeg -i` banner).
 
 ```bash
+# from the registry, inside your DSH profile directory
+npm i dsh-video-vision
+npx dsh-video-vision-install         # patch ~/.dsh/profiles/desktop, then restart DSH
+
+# or from a checkout, without installing it at all
 cd /path/to/dsh-video-vision
 node bin/install.mjs                 # patch ~/.dsh/profiles/desktop, then restart DSH
 node bin/install.mjs --dry-run       # show what it would change, touch nothing
@@ -186,7 +191,7 @@ Verify a machine end to end (no video needed — it builds one):
 node bin/selfcheck.mjs --smoke          # 21 checks, builds its own clip
 node bin/selfcheck.mjs --smoke --host   # 40 checks: validates all five tools against the
                                         # installed Harness's schema engine
-node --test test/                       # 314 tests, no network, hermetic temp dirs
+node --test test/                       # 331 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -557,7 +562,7 @@ docs/DESIGN.md       why each threshold exists; mechanisms that were rejected
 docs/REAL-WORLD.md   three untouched screen captures, inspected by eye
 docs/TOKENS.md       how DeepSeek prices an image, and what the grid size costs
 bench/               the corpus, its generator, and every script that made a number
-test/                314 unit tests, no network, hermetic temp dirs
+test/                331 unit tests, no network, hermetic temp dirs
 ```
 
 ---

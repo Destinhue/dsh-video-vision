@@ -1,6 +1,6 @@
 {
   "name": "dsh-video-vision",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Look at a video, not a summary of it: one addressable storyboard grid per view, tuned for deepseek-v4.1-flash vision — adaptive cell resolution, content-aware layout, frame-level scene detection and a token-tight index. Reads a lecture as a timestamped text document, maps a whole file as text with no image at all, and turns an audio-only file into a transcript.",
   "keywords": [
     "dsh",
@@ -35,6 +35,7 @@
     "src",
     "bin",
     "test",
+    "!test/.tmp",
     "docs",
     "cordis.patch.yml",
     "dsh.plugin.json",

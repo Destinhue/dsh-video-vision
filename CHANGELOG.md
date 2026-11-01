@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.4 — the tarball is the package
+
+- **First release on npm.** `npm i dsh-video-vision` then
+  `npx dsh-video-vision-install`; the checkout route still works and is what the
+  installer does either way.
+- **The shebangs are LF again.** `git ls-files --eol` showed
+  `bin/install.mjs`, `bin/selfcheck.mjs` and `test/manifest.test.mjs` committed
+  with CRLF, which made `pnpm pack` refuse the package outright
+  (`ERR_PNPM_BIN_CRLF`) — and would have made `npx` fail on Linux and macOS
+  even if it had gone out. `.gitattributes` has said `* text=auto eol=lf` since
+  1.0.0; the working tree now agrees with it.
+- **No test scratch in the tarball.** One test hardlinks the machine's ffmpeg into
+  `test/.tmp/path-*/` and deletes it in `t.after`; when a run was interrupted the
+  leftover 99 MB `ffmpeg.exe` was packed into the first tarball and 36 MB came
+  out the other end. `test/.tmp` was already in `.gitignore` but `files` listed
+  `test` wholesale; it is now excluded by both `files` and a `.npmignore`.
+  The tarball is **693 KB, 62 files**, biggest entry a 199 KB screenshot.
+- Docs: the test count in both READMEs and `docs/EVIDENCE.md` was stale at 314;
+  the suite is 331 tests (329 pass, 2 skip for a missing ffmpeg on the host).
+
 ## 1.4.3 — the OCR probe gets the environment it needs
 
 - **The probe no longer inherits a stripped environment.** 1.4.2 asked the host

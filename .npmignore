@@ -1,0 +1,7 @@
+# Packing a plugin, not a workspace: tests are useful to read, their scratch is not.
+test/.tmp/
+test/.tmp
+bench/
+work/
+.github/
+*.tgz

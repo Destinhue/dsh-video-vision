@@ -136,6 +136,11 @@ video_read       整条视频读成带时间戳的文本 —— 讲课、幻灯�
 `ffmpeg -i` 的输出里解析元数据。
 
 ```bash
+# 从 registry 装：在 DSH profile 目录里执行
+npm i dsh-video-vision
+npx dsh-video-vision-install         # 改 ~/.dsh/profiles/desktop，然后重启 DSH
+
+# 或者直接用一份 checkout，不必先装
 cd /path/to/dsh-video-vision
 node bin/install.mjs                 # 改 ~/.dsh/profiles/desktop，然后重启 DSH
 node bin/install.mjs --dry-run       # 只打印要改什么，不动文件
@@ -166,7 +171,7 @@ ffmpeg 4.x 以上都能用：抽帧器会先问一次二进制自己的版本，
 node bin/selfcheck.mjs --smoke          # 21 项检查，自己生成素材
 node bin/selfcheck.mjs --smoke --host   # 40 项：校验全部五个工具，对着已安装的
                                         # Harness 自己的 schema 引擎
-node --test test/                       # 314 个单元测试，不联网，临时目录隔离
+node --test test/                       # 331 个单元测试，不联网，临时目录隔离
 ```
 
 `--host` 跑的是 `ctx.tools.register` 真正执行的断言，然后逐个工具真调用一次，
@@ -485,7 +490,7 @@ docs/DESIGN.md       每条阈值为什么存在；被否掉的机制
 docs/REAL-WORLD.md   三份没动过的截屏，用眼睛看过
 docs/TOKENS.md       DeepSeek 怎么给一张图计价，网格尺寸花多少
 bench/               语料、语料生成器，和产出每个数字的脚本
-test/                314 个单元测试，不联网，临时目录隔离
+test/                331 个单元测试，不联网，临时目录隔离
 ```
 
 ---
