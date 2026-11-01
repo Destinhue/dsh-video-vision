@@ -1,7 +1,11 @@
 param(
-  [Parameter(Mandatory=$true)][string]$Dir,
-  [Parameter(Mandatory=$true)][string]$Out,
-  [string]$Lang = 'zh-Hans-CN'
+  [string]$Dir,
+  [string]$Out,
+  [string]$Lang = 'zh-Hans-CN',
+  # -Probe answers "which recogniser languages does this host have?" and exits.
+  # It is how the plugin tells an engine that works from Windows Server, where
+  # Windows.Media.Ocr is present but has no language pack behind it.
+  [switch]$Probe
 )
 
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
@@ -24,9 +28,27 @@ function Await($op, $type) {
 [Windows.Storage.StorageFile, Windows.Foundation, ContentType = WindowsRuntime] | Out-Null
 [Windows.Globalization.Language, Windows.Foundation, ContentType = WindowsRuntime] | Out-Null
 
+$available = @()
+try {
+  $available = @([Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages | ForEach-Object { $_.LanguageTag })
+} catch {
+  Write-Output ("probe-error " + $_.Exception.Message)
+  exit 2
+}
+
+if ($Probe) {
+  foreach ($tag in $available) { Write-Output ("lang " + $tag) }
+  exit 0
+}
+
+if (-not $Dir -or -not $Out) { Write-Output "usage: -Dir <png dir> -Out <txt file> [-Lang <tag>]"; exit 2 }
+
 $language = New-Object Windows.Globalization.Language $Lang
 $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($language)
-if (-not $engine) { Write-Output "no OCR engine for $Lang"; exit 1 }
+if (-not $engine) {
+  Write-Output ("no OCR engine for $Lang; installed: " + ($(if ($available.Count) { $available -join ', ' } else { 'none' })))
+  exit 1
+}
 
 $inv = [System.Globalization.CultureInfo]::InvariantCulture
 $sb = New-Object System.Text.StringBuilder

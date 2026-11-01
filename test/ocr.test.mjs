@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encodePng } from '../src/png.js';
 import {
+  chooseOcrLanguage,
   findOnPath,
   joinWords,
   ocrBackend,
@@ -12,6 +13,8 @@ import {
   ocrDirectory,
   parseTsv,
   readingOrder,
+  windowsBackendFromProbe,
+  windowsProbeVerdict,
 } from '../src/ocr.js';
 
 const TMP = fileURLToPath(new URL('./.tmp/', import.meta.url));
@@ -203,3 +206,59 @@ test('read refuses politely when OCR is switched off', async (t) => {
     else process.env.DSH_OCR_BACKEND = before;
   }
 });
+
+test('the Windows engine language prefers Chinese, then English, then whatever is there', () => {
+  assert.equal(chooseOcrLanguage(['zh-Hans-CN', 'en-US']), 'zh-Hans-CN');
+  // a base-tag match still reads Chinese
+  assert.equal(chooseOcrLanguage(['zh-hans', 'en-US']), 'zh-hans');
+  assert.equal(chooseOcrLanguage(['ja-JP']), 'ja-JP');
+  assert.equal(chooseOcrLanguage([]), null);
+  assert.equal(chooseOcrLanguage(undefined), null);
+  // an English-only host is readable, just not ideal
+  assert.equal(chooseOcrLanguage(['en-GB', 'de-DE']), 'en-GB');
+});
+
+test('a probe that lists languages is a working engine', () => {
+  const verdict = windowsProbeVerdict({ code: 0, stdout: 'lang zh-Hans-CN\r\nlang en-US\r\n' });
+  assert.deepEqual(verdict, { ok: true, languages: ['zh-Hans-CN', 'en-US'], reason: '' });
+  const backend = windowsBackendFromProbe(verdict);
+  assert.equal(backend.ok, true);
+  assert.equal(backend.kind, 'windows');
+  assert.equal(backend.lang, 'zh-Hans-CN');
+  assert.deepEqual(backend.languages, ['zh-Hans-CN', 'en-US']);
+});
+
+test('a host with no recogniser is reported, not crashed into', () => {
+  const verdict = windowsProbeVerdict({ code: 0, stdout: '' });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /no recogniser language/);
+  const backend = windowsBackendFromProbe(verdict);
+  assert.equal(backend.ok, false);
+  assert.equal(backend.engine, null);
+  assert.match(backend.reason, /no recogniser language/);
+});
+
+test('a probe that cannot load the engine quotes what happened', () => {
+  const verdict = windowsProbeVerdict({ code: 2, stdout: 'probe-error Cannot find type [Windows.Media.Ocr.OcrEngine]\n' });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /cannot be loaded: Cannot find type/);
+});
+
+test('a probe that exits non-zero keeps its exit code and stderr', () => {
+  const verdict = windowsProbeVerdict({ code: 1, stdout: '', stderr: 'ExecutionPolicy refused' });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /failed \(exit 1\): ExecutionPolicy refused/);
+});
+
+test('a probe that hangs is a timeout, not a silence', () => {
+  const verdict = windowsProbeVerdict({ timedOut: true, stdout: '' });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /timed out/);
+});
+
+test('an unanswered probe still yields an unavailable backend', () => {
+  const backend = windowsBackendFromProbe(undefined);
+  assert.equal(backend.ok, false);
+  assert.match(backend.reason, /no Windows OCR probe answer/);
+});
+

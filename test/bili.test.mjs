@@ -36,6 +36,14 @@ test('a b23.tv short link is recognised as needing a redirect', () => {
 test('things that are not bilibili are not claimed', () => {
   assert.equal(parseBilibili('https://example.com/watch?v=1'), null);
   assert.equal(parseBilibili('C:\\videos\\a.mp4'), null);
+  // a file whose name carries an id is still a file, not a video
+  assert.equal(parseBilibili('C:\\videos\\av12345.mp4'), null);
+  assert.equal(parseBilibili('/home/me/BV1GJ411x7h7.mp4'), null);
+  assert.equal(parseBilibili('av12345.mp4'), null);
+  assert.equal(parseBilibili('test/.tmp/pipeline-av6jp2/cuts.mp4'), null);
+  assert.equal(isBilibili('test/.tmp/pipeline-av6jp2/cuts.mp4'), false);
+  // while the ids themselves still parse
+  assert.deepEqual(parseBilibili('av170001'), { aid: 170001, page: 1 });
   assert.equal(parseBilibili('/home/me/a.mp4'), null);
   assert.equal(parseBilibili(''), null);
   assert.equal(parseBilibili(null), null);

@@ -374,7 +374,10 @@ Needs an OCR engine, and uses whichever it finds: the Windows one (built in, no
 download, no model), `tesseract` on `PATH` anywhere, or `DSH_OCR_CMD` pointing
 at an engine of your own (one image path in, lines out). `DSH_OCR_BACKEND` is
 `windows` · `tesseract` · `off`, and `DSH_OCR_LANG` passes `-l` to
-tesseract. With no engine at all the tool says so instead of pretending.
+tesseract. With no engine at all the tool says so instead of pretending: the
+Windows engine is probed for a recogniser language before it is used, so a
+Windows Server (the engine is there, the language pack is not) falls back to
+pictures rather than failing the read.
 
 ---
 
@@ -511,7 +514,11 @@ a download plus a recogniser to re-derive them would be silly.
   built in; `tesseract` on `PATH` is used on Linux and macOS; `DSH_OCR_CMD` points at
   anything else that takes one image and prints lines. With none of the three the
   tool says so — `DSH_OCR_BACKEND=off` forces that answer, and `video_outline` or
-  `video_storyboard` still work because neither reads text.
+  `video_storyboard` still work because neither reads text. A host whose Windows
+  engine has no recogniser language (Windows Server, a trimmed install) counts as
+  having none: `video_read` returns pictures with the usual note instead of an
+  `OCR failed` error. The language is chosen once — `zh-Hans-CN`, then any
+  `zh-hans` variant, then English, then whatever the host has.
 - **B站 only, and only what it hands out without an account.** A B站 link is
   resolved through the public endpoints, which means 720P unless you supply a
   cookie (`DSH_BILIBILI_COOKIE`); there is no `yt-dlp`, so other sites still have

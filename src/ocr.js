@@ -19,7 +19,7 @@
  * `DSH_OCR_BACKEND=off` switches OCR off, `=tesseract` skips the native engine.
  * Everything else reports "unavailable" and the caller falls back to pictures.
  */
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +29,9 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const SCRIPT = join(HERE, '..', 'bin', 'ocr-batch.ps1');
 const POWERSHELL = process.env.DSH_POWERSHELL || join(process.env.SystemRoot || 'C:\\Windows',
   'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+
+/** asking the host which OCR languages it has is one PowerShell start-up */
+const PROBE_TIMEOUT_MS = 20_000;
 
 /** how many images an external engine is asked about at once */
 const ENGINE_CONCURRENCY = 4;
@@ -83,6 +86,115 @@ export function ocrBackend(env = process.env) {
   return backend;
 }
 
+/**
+ * Which language should the Windows engine be asked for?
+ *
+ * The wanted language wins, then any variant of its base tag, then English (a
+ * Latin engine still reads an English slide deck), then whatever the host has.
+ * An empty list means this host has no recogniser at all.
+ *
+ * @param {string[]} languages tags from `AvailableRecognizerLanguages`
+ * @param {string} [wanted] e.g. `zh-Hans-CN`
+ * @returns {string|null}
+ */
+export function chooseOcrLanguage(languages, wanted = 'zh-Hans-CN') {
+  const list = (languages || []).map((tag) => String(tag ?? '').trim()).filter(Boolean);
+  if (!list.length) return null;
+  const want = String(wanted || '').trim().toLowerCase();
+  if (!want) return list[0];
+  const exact = list.find((tag) => tag.toLowerCase() === want);
+  if (exact) return exact;
+  const base = want.split('-').slice(0, 2).join('-');
+  const prefix = base
+    ? list.find((tag) => {
+      const lower = tag.toLowerCase();
+      return lower === base || lower.startsWith(base + '-');
+    })
+    : null;
+  if (prefix) return prefix;
+  const english = list.find((tag) => /^en(-|$)/i.test(tag));
+  return english || list[0];
+}
+
+/**
+ * Read the answer of `ocr-batch.ps1 -Probe`.
+ *
+ * Kept pure so a test can pin both answers without a Windows Server beside it.
+ * @param {{code?:number|null, stdout?:string, stderr?:string, timedOut?:boolean}} answer
+ * @returns {{ok:boolean, languages:string[], reason:string}}
+ */
+export function windowsProbeVerdict({ code, stdout, stderr, timedOut } = {}) {
+  if (timedOut) return { ok: false, languages: [], reason: 'the Windows OCR probe timed out' };
+  const out = String(stdout ?? '');
+  const err = String(stderr ?? '').trim();
+  const broken = out.split(/\r?\n/).map((line) => line.trim()).find((line) => /^probe-error\b/i.test(line));
+  if (broken) {
+    return {
+      ok: false, languages: [],
+      reason: 'Windows OCR cannot be loaded: ' + broken.replace(/^probe-error\s*/i, ''),
+    };
+  }
+  const languages = out.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^lang\s+\S/i.test(line))
+    .map((line) => line.replace(/^lang\s+/i, '').trim())
+    .filter(Boolean);
+  if (typeof code === 'number' && code !== 0) {
+    return {
+      ok: false, languages,
+      reason: 'the Windows OCR probe failed (exit ' + code + ')' + (err ? ': ' + err.slice(-200) : ''),
+    };
+  }
+  if (!languages.length) {
+    return {
+      ok: false, languages,
+      reason: 'Windows OCR is installed but no recogniser language is (Windows Server ships without one)',
+    };
+  }
+  return { ok: true, languages, reason: '' };
+}
+
+/**
+ * Turn a probe answer into the backend record the pipeline reads.
+ *
+ * Separate from the run so the "Windows Server has no language pack" branch is
+ * a unit test rather than a CI-only mystery.
+ * @param {{ok:boolean, languages:string[], reason?:string}} probe
+ */
+export function windowsBackendFromProbe(probe) {
+  if (!probe || !probe.ok) {
+    return { ok: false, engine: null, reason: (probe && probe.reason) || 'no Windows OCR probe answer' };
+  }
+  return {
+    ok: true, kind: 'windows', engine: 'windows-media-ocr',
+    lang: chooseOcrLanguage(probe.languages), languages: probe.languages,
+  };
+}
+
+/**
+ * Ask the host what its Windows engine can actually recognise.
+ *
+ * @param {Record<string,string|undefined>} [env]
+ * @returns {{ok:boolean, languages:string[], reason:string}}
+ */
+export function probeWindowsOcr(env = process.env) {
+  const shell = env.DSH_POWERSHELL || POWERSHELL;
+  const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT, '-Probe'];
+  try {
+    const stdout = execFileSync(shell, args, {
+      env, timeout: PROBE_TIMEOUT_MS, windowsHide: true, encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return windowsProbeVerdict({ code: 0, stdout });
+  } catch (error) {
+    const stdout = error && error.stdout ? String(error.stdout) : '';
+    const stderr = error && error.stderr ? String(error.stderr) : '';
+    const timedOut = Boolean(error && (error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM'));
+    const status = error && typeof error.status === 'number' ? error.status : -1;
+    return windowsProbeVerdict({ code: status, stdout, stderr, timedOut });
+  }
+}
+
 function pickBackend(env) {
   const asked = String(env.DSH_OCR_BACKEND || '').toLowerCase();
   if (asked === 'off' || asked === 'none') {
@@ -100,8 +212,12 @@ function pickBackend(env) {
   // Windows it wins whenever it is there.
   if (process.platform === 'win32') {
     if (!existsSync(SCRIPT)) return { ok: false, engine: null, reason: 'missing ' + SCRIPT };
-    if (!existsSync(POWERSHELL)) return { ok: false, engine: null, reason: 'missing ' + POWERSHELL };
-    return { ok: true, kind: 'windows', engine: 'windows-media-ocr' };
+    const shell = env.DSH_POWERSHELL || POWERSHELL;
+    if (!existsSync(shell)) return { ok: false, engine: null, reason: 'missing ' + shell };
+    // powershell.exe being there is not the same as an engine being behind it:
+    // Windows Server ships Windows.Media.Ocr with no language pack, and asking
+    // first turns a crash in every read into one honest sentence.
+    return windowsBackendFromProbe(probeWindowsOcr(env));
   }
   const found = findOnPath('tesseract', env);
   if (found) return { ok: true, kind: 'tesseract', engine: 'tesseract', bin: found };
@@ -129,7 +245,7 @@ export async function ocrDirectory(dir, opts = {}) {
   const pngs = readdirSync(dir).filter((f) => f.endsWith('.png')).sort();
   let map;
   if (!pngs.length) map = new Map();
-  else if (backend.kind === 'windows') map = await ocrWindows(dir, opts);
+  else if (backend.kind === 'windows') map = await ocrWindows(dir, opts, backend);
   else if (backend.kind === 'tesseract') map = await ocrExternal(dir, pngs, backend, opts);
   else map = await ocrExternal(dir, pngs, backend, opts);
   // anything the engine skipped stays empty rather than missing
@@ -144,13 +260,18 @@ export async function ocrDirectory(dir, opts = {}) {
  * OCR every PNG in a directory, in ONE process (engine startup dominates the
  * per-image cost, so batching matters more than concurrency).
  */
-async function ocrWindows(dir, opts) {
+async function ocrWindows(dir, opts, backend = {}) {
   const out = join(dir, 'ocr.txt');
+  const env = opts.env || process.env;
+  const shell = env.DSH_POWERSHELL || POWERSHELL;
   const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT,
     '-Dir', dir, '-Out', out];
+  if (backend.lang) args.push('-Lang', backend.lang);
   await new Promise((resolve, reject) => {
-    const child = spawn(POWERSHELL, args, { stdio: ['ignore', 'ignore', 'pipe'], signal: opts.signal });
+    const child = spawn(shell, args, { stdio: ['ignore', 'pipe', 'pipe'], signal: opts.signal });
     let err = '';
+    let outText = '';
+    child.stdout.on('data', (c) => { outText += c.toString('utf8'); });
     child.stderr.on('data', (c) => { err += c.toString('utf8'); });
     const timer = opts.timeoutMs
       ? setTimeout(() => { child.kill(); reject(new Error('OCR timed out after ' + opts.timeoutMs + ' ms')); }, opts.timeoutMs)
@@ -158,8 +279,12 @@ async function ocrWindows(dir, opts) {
     child.on('error', reject);
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
-      if (code !== 0) reject(new Error('OCR failed (' + code + '): ' + err.slice(-400)));
-      else resolve(undefined);
+      if (code !== 0) {
+        // the engine explains itself on stdout (`no OCR engine for ...`), and
+        // an error that hides that sentence is how CI failed twice
+        const why = (err.trim() || outText.trim() || 'exit ' + code).slice(-400);
+        reject(new Error('OCR failed (' + code + '): ' + why));
+      } else resolve(undefined);
     });
   });
   const text = readFileSync(out, 'utf8');

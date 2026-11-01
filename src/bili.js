@@ -59,6 +59,11 @@ export function parseBilibili(input) {
   const text = input.trim();
   if (!text) return null;
 
+  // A path or a filename is a file, never an id. Without this, C:\videos\av12345.mp4
+  // and a temp directory called pipeline-av6jp2 both read as a B站 video — the
+  // latter sent one test in ~2 400 to the network on a clip that was never online.
+  const looksLikeUrl = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) || /bilibili\.com\/|b23\.tv\//i.test(text);
+  if (!looksLikeUrl && (/[\\/]/.test(text) || /\.[a-z0-9]{1,5}$/i.test(text))) return null;
   let page = 1;
   const pageMatch = /[?&]p=(\d+)/.exec(text);
   if (pageMatch) page = Number(pageMatch[1]) || 1;

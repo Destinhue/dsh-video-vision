@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.4.2 — a Windows Server without an OCR language is a picture, not a crash
+
+- **Windows CI stopped failing on a bare `OCR failed (1): `.** The native
+  engine was chosen whenever `powershell.exe` existed, so a Windows Server
+  runner — `Windows.Media.Ocr` present, its recogniser language pack absent —
+  looked usable and then made `bin/ocr-batch.ps1` exit 1. Two symptoms
+  followed: the engine's explanation went to stdout while the caller only
+  collected stderr, so the error ended in a bare colon; and the read that
+  should have fallen back to pictures threw instead. The backend now asks the
+  host what it can recognise (`ocr-batch.ps1 -Probe`, one 20 s-bounded call,
+  memoised per process) and reports `no recogniser language is (Windows Server
+  ships without one)`; the failure text also quotes stdout, so the next
+  version of this bug names itself.
+- **The chosen language is now explicit.** `chooseOcrLanguage()` picks
+  `zh-Hans-CN`, then any `zh-hans` variant, then English, then whatever the
+  host has, and the batch script is told with `-Lang`. A host with
+  English-only OCR reads English slides instead of being declared broken.
+  `windowsProbeVerdict()`, `windowsBackendFromProbe()` and
+  `probeWindowsOcr()` are exported for tests.
+
+- **A local file is no longer mistaken for a B站 link.** `parseBilibili()` read
+  the text for an id anywhere in the string, so `C:\videos\av12345.mp4` became
+  video `av12345` and a temp directory called `pipeline-av6jp2` counted as a
+  video too — that path went to the network and made one run in ~2 400 fail on
+  a clip that was never online. A string that is not a URL and carries a path
+  separator or a file extension is now a file.
+
+### Fixed
+
+- `video_read` on a Windows host with no OCR language pack now returns
+  pictures with the usual "no readable text" note instead of `OCR failed (1): `.
+
 ## 1.4.1 — the marks move, the picture does not
 
 - **A slide deck is no longer reported as an empty clip.** A clip whose frame
