@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.3 — the OCR probe gets the environment it needs
+
+- **The probe no longer inherits a stripped environment.** 1.4.2 asked the host
+  which OCR languages it has by starting PowerShell, but handed it whatever
+  `env` record reached `ocrBackend()` — on Windows CI that was a test's
+  `{ PATH: '' }`, which left PowerShell unable to find its own dependency and
+  the call hung until the 20 s bound, so `ocrBackend()` answered "unavailable"
+  on two of the three runner images while the third passed. The probe now
+  spawns with `{ ...process.env, ...env }` (the caller only overrides) and the
+  bound is 60 s, enough for a cold runner to load WinRT.
+
 ## 1.4.2 — a Windows Server without an OCR language is a picture, not a crash
 
 - **Windows CI stopped failing on a bare `OCR failed (1): `.** The native

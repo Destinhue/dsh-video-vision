@@ -30,8 +30,9 @@ const SCRIPT = join(HERE, '..', 'bin', 'ocr-batch.ps1');
 const POWERSHELL = process.env.DSH_POWERSHELL || join(process.env.SystemRoot || 'C:\\Windows',
   'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
 
-/** asking the host which OCR languages it has is one PowerShell start-up */
-const PROBE_TIMEOUT_MS = 20_000;
+/** asking the host which OCR languages it has is one PowerShell start-up — but a
+ * cold CI runner needs seconds to load WinRT, so the bound is generous */
+const PROBE_TIMEOUT_MS = 60_000;
 
 /** how many images an external engine is asked about at once */
 const ENGINE_CONCURRENCY = 4;
@@ -181,9 +182,12 @@ export function probeWindowsOcr(env = process.env) {
   const shell = env.DSH_POWERSHELL || POWERSHELL;
   const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT, '-Probe'];
   try {
+    // the caller's env only overrides: a stripped one (a test passing PATH: '')
+    // makes PowerShell itself slow or unresolvable, which is not a fact about
+    // the host's OCR
     const stdout = execFileSync(shell, args, {
-      env, timeout: PROBE_TIMEOUT_MS, windowsHide: true, encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, ...env }, timeout: PROBE_TIMEOUT_MS, windowsHide: true,
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     });
     return windowsProbeVerdict({ code: 0, stdout });
   } catch (error) {
