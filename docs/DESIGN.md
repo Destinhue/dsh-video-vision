@@ -82,14 +82,17 @@ grid at `i-1` and `i+1` (`classifyJump`):
 | verdict | test | example |
 | --- | --- | --- |
 | **cut** | ≥35 % of blocks changed by >14 luma | a new shot |
-| **partial** | 10–35 % changed, but the jump is ≥4x the threshold | a slide whose text block changed |
+| **partial** | 10–35 % changed, but the jump is ≥4x the threshold | part of the frame replaced by bigger content |
 | **overlay** | ≥85 % of active blocks unchanged | a caption appearing, a logo, a cursor |
 | **light** | chroma almost identical, luma changed uniformly | a lamp switching on |
 | **noise** | <10 % of blocks changed | a single frame of compression damage |
 
-The "partial" escape is what lets a slideshow — six cards that share the same
-chrome and differ only in the title — be recognised as six shots, while a bar
-sliding across the frame is not.
+The "partial" escape is easy to over-credit. It is **not** what rescues a
+slide deck. Measured on six 1280x720 title cards that differ only in their body
+text, the changed share was 1–6 % (median 3.6 % across the pairs) — below the
+10 % event floor, so every card change lands in `noise` by design. Lowering that
+floor to "catch" the deck would turn every caption swap into a shot. A deck is
+found from its marks instead; see §2.6.
 
 ### 2.4 Flashes are not shots
 
@@ -118,6 +121,42 @@ change)` **and**:
    which is how two phantom fades in a flicker clip were removed.
 
 A slow pan fails all three by construction, which is why it produces no cuts.
+
+### 2.6 When the marks are the structure
+
+A slideshow, a quiz card, a captioned tutorial: no cut ever happens, and the
+picture changes by a few percent at a time. §3.2 answers this for *long* units
+(>90 s) with a board pass. A 30 s deck gets no board — the unit is too short for
+that — and the planner, which can only spill *inside* a shot, spent one cell on
+the whole thing. That is the report "0 cuts, 1 cell, and every detail level
+gives the same image".
+
+The scan already knew the shape. `detectTextMotion` proves the case — zero cuts,
+a change every few seconds, the same handful of blocks moving each time — and
+said so in the note and in `video_read`, but the layout never heard it. It does
+now:
+
+```js
+markTimes(micro, effFps)   // every sampled pair whose changed share sits in the
+                           // band the scan calls a mark
+                           // [microMinFrac 0.005, microMaxFrac 0.15)
+markShots(scan, { maxMarks = 24, minSeconds = 1.5 })
+                           // text-motion clips only; a mark within minSeconds
+                           // of the previous one or of the tail is dropped;
+                           // fewer than 2 survivors means no partition
+```
+
+When `markShots` returns a partition, `planCells` breaks the clip at the marks
+instead of spilling inside one shot, and the cards become the cells: a six-card
+deck gets six cells — one card each, spans exactly on the boundaries — at every
+detail level (measured: 6 cells, 359 vision tokens at `auto`, against 1 cell and
+192 tokens before).
+
+What does not change: the header still says `0 cuts`, because there is no cut.
+The note says where the cells came from — `6 of those moves are the cells below,
+one card each` — instead of promising a map of the cuts. The cut thresholds are
+untouched on purpose: the same relaxation that would make a 6 % card a cut would
+make every caption line a shot.
 
 ---
 
@@ -357,7 +396,8 @@ default already picks the core count, so there is nothing left to claim.
 **A global "same picture" test across the whole clip** (to drop cells that
 repeat a previous shot). It merges clip D's six text cards into one cell: they
 differ only in a title and three bullet lines, which is exactly the content the
-model was asked to read. The current rule compares only within a shot.
+model was asked to read. The current rule compares only within a shot, and a
+clip that is one shot by construction is segmented from its marks instead (§2.6).
 
 ## 9. Reading text: what the agent needs from a lecture
 
@@ -577,9 +617,9 @@ assumption in a quieter way: a slide deck, a leaderboard, a quiz card — the fr
 essentially constant and the thing that changes is a line of text. The cut detector sees
 nothing, because a caption costs 1–3 cells of a 12×7 block grid and a cut costs 35 % of it;
 the motion rail sees nothing for the same reason. So `video_outline` called every window
-`static`, `video_storyboard` produced one cell of 192 tokens, and any model that asked those
-two first concluded the file had nothing in it — while `video_read`, which samples on pixels,
-read eleven screens correctly.
+`static`, `video_storyboard` produced one cell of 192 tokens (1.4.5 spends a cell per mark
+instead; §2.6), and any model that asked those two first concluded the file had nothing in
+it — while `video_read`, which samples on pixels, read eleven screens correctly.
 
 The fix is one more measurement on the pass that already exists: of the adjacent sample pairs
 whose change is small but non-zero, count them, take their density, and ask whether the
@@ -590,13 +630,15 @@ three quarters of the activity in the busiest quarter of the blocks — and the 
 margins are wide: the 30 s repro scores density 0.036 and share 1.000, a 750-frame slow pan
 scores density 0.76, a strobing clip 0.90. Both stay `static`.
 
-What changes downstream is only the sentence and the tag. `video_outline` gains `text`
-beside `dark` and `static`, prints "24 of 24 windows keep their picture and redraw their
-marks — that is text, not a still frame", and its `next:` line names `video_read` instead of
-a window. `video_storyboard` keeps producing its cells — a sheet still says *when* things
-happen — but the index now opens with the same routing sentence. The four tool descriptions
-say which reader to call first. Measured on the repro: outline 0.79 s / 24 windows / zero
-image tokens, storyboard 1.17 s / 192 tokens, read 3.63 s / 12 screens.
+What changes downstream is the sentence, the tag — and, since 1.4.5, the cells themselves:
+the marks become the cell boundaries (§2.6), so a deck gets one cell per change instead of
+one for the clip. `video_outline` gains `text` beside `dark` and `static`, prints "24 of 24
+windows keep their picture and redraw their marks — that is text, not a still frame", and
+its `next:` line names `video_read` instead of a window. `video_storyboard` keeps producing
+its cells — a sheet still says *when* things happen — but the index now opens with the same
+routing sentence. The four tool descriptions say which reader to call first. Measured on the
+repro: outline 0.79 s / 24 windows / zero image tokens, storyboard 1.17 s / 192 tokens at the
+time (359 with a cell per card), read 3.63 s / 12 screens.
 
 The reader itself had the same blind spot from the other side: its dense-mode gate compared
 12×7 block means, where one caption replacing another is a change of 0.000, so the frame

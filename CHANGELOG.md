@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.4.5 — a deck is cells, not one cell
+
+- **A text-card clip stops being one picture.** Six 1280x720 title cards that
+  differ only in their body text scanned as `0 cuts · median shot 30.15s`, and
+  the planner — which can only spill *inside* a shot — spent one cell on the
+  whole thing, so every `detail` level produced the same single-cell sheet. The
+  scan had already proved the case (`detectTextMotion`); it now hands the marks
+  to the layout: `markTimes` reads the same changed-share band the scan uses,
+  `markShots` turns them into a partition (a mark within 1.5 s of the previous
+  one or of the tail is dropped; fewer than 2 survivors means no partition, so
+  at most 24 cells can come this way), and `planCells` breaks there. The 30 s
+  deck now gets **6 cells, one per card, 359 vision tokens at `auto`**, with the
+  spans exactly on the card boundaries (was 1 cell, 192 tokens).
+- **The cut count stays honest.** The header still says `0 cuts` — there is no
+  cut — and the note says where the cells came from instead of promising a map:
+  `6 of those moves are the cells below, one card each (0 cuts stays the honest
+  count: the cards change, the cutter does not)`. The cut thresholds are
+  untouched on purpose: the relaxation that would make a 6 % card a cut would
+  make every caption line a shot.
+- **`README` and `docs/DESIGN.md` said a slide changing only its text block is a
+  `partial` cut.** It is not: 1–6 % changed is below the 10 % event floor and
+  lands in `noise`, which is why the deck needed its own path (§2.6).
+- Suite is 339 tests (337 pass, 2 skip for a missing ffmpeg on the host).
+
 ## 1.4.4 — the tarball is the package
 
 - **First release on npm.** `npm i dsh-video-vision` then

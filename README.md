@@ -50,8 +50,14 @@ hours of video, 5.6 s for a 95-second subtitled clip, and 1.3 s for a 36-second 
 grid of luma *and* chroma block means in a single ffmpeg pass, so a cut between
 two shots of identical brightness — a day scene to a differently graded day
 scene — is still a cut. Jumps are then classified five ways: `cut`, `partial`
-(a slide changing only its text block), `overlay` (a caption appearing),
-`light` (a lamp switching on) and `noise`; only the first two become cells.
+(part of the frame replaced by bigger content), `overlay` (a caption appearing),
+`light` (a lamp switching on) and `noise`; only the first two become cuts.
+
+**A deck with no cuts still gets a cell per card.** Six title cards that change
+only their body text move 1–6 % of the picture — below the bar that would make a
+caption swap a shot — so the scan calls the clip text motion instead, and the
+marks become the cell boundaries: six cards, six cells, with `0 cuts` still
+reported honestly in the header.
 
 **Flashes and fades are not shots.** A one-frame white flash restores the
 picture within three frames and is rejected; a dissolve is recognised as a
@@ -191,7 +197,7 @@ Verify a machine end to end (no video needed — it builds one):
 node bin/selfcheck.mjs --smoke          # 21 checks, builds its own clip
 node bin/selfcheck.mjs --smoke --host   # 40 checks: validates all five tools against the
                                         # installed Harness's schema engine
-node --test test/                       # 331 tests, no network, hermetic temp dirs
+node --test test/                       # 339 tests, no network, hermetic temp dirs
 ```
 
 `--host` runs the exact assertions `ctx.tools.register` runs, then calls every
@@ -562,7 +568,7 @@ docs/DESIGN.md       why each threshold exists; mechanisms that were rejected
 docs/REAL-WORLD.md   three untouched screen captures, inspected by eye
 docs/TOKENS.md       how DeepSeek prices an image, and what the grid size costs
 bench/               the corpus, its generator, and every script that made a number
-test/                331 unit tests, no network, hermetic temp dirs
+test/                339 unit tests, no network, hermetic temp dirs
 ```
 
 ---
