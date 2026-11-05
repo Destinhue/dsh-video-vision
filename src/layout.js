@@ -18,7 +18,7 @@
  *    middle of the span and toward frames that are sharp and detailed. The
  *    scan already scored every frame, so this costs nothing.
  */
-import { SCAN_DEFAULTS } from './scan.js';
+import { SCAN_DEFAULTS, markTimes } from './scan.js';
 
 export const LAYOUT_DEFAULTS = {
   minCells: 3,
@@ -43,6 +43,12 @@ export const LAYOUT_DEFAULTS = {
   // picture?" has to be asked per block, not over the whole frame.
   boardMinSeconds: 90,
   boardMinChange: 0.02,
+  // A clip that moves its marks instead of its picture — a card deck, a quiz,
+  // a leaderboard — gets one cell per mark rather than one cell for the whole
+  // run. Two gates keep that from turning into a cell per subtitle line: only a
+  // handful of marks count, and a card has to stay up long enough to be one.
+  markMaxMarks: 24,
+  markMinSeconds: 1.5,
   spillNoveltyK: 2.5,
 };
 
@@ -168,6 +174,71 @@ export function buildShots(scan) {
     shots.push({ t0: 0, t1: duration, dur: duration, i0: 0, i1: Math.max(0, scan.frames - 1), kind: 'cut' });
   }
   return shots;
+}
+
+/**
+ * Break a mark-driven clip at its marks: one card, one cell.
+ *
+ * `detectTextMotion` answers "is this clip about its text rather than its
+ * pictures?" — no cut at all, a handful of small moves in one band of the grid,
+ * long enough that the answer is worth printing. That verdict is currently only
+ * printed, and a six-card deck therefore gets the single picture its zero cuts
+ * earn, which is the one picture the whole deck cannot be represented by.
+ *
+ * The layout needs the second half of the sentence: *where* the moves are. Each
+ * mark is a boundary — the first frame on which a new card is up — so the run
+ * becomes one segment per card, and the floor of one cell per unit then puts a
+ * different picture on the sheet for each of them.
+ *
+ * Deliberately narrow, because every extra cell is a picture someone pays for:
+ *
+ *   - only clips the scan judged mark-driven (`textMotion`), which already
+ *     excludes anything with a single cut in it;
+ *   - only a handful of marks (`markMaxMarks`): a deck has five, a subtitled
+ *     lecture has hundreds and `video_read` reads those for free;
+ *   - a mark less than `markMinSeconds` from the previous boundary is a
+ *     transition inside one card ("2 of 6" fading in), not a new card.
+ *
+ * @param {object} scan  result of scanShots()
+ * @param {{maxMarks?:number, minSeconds?:number}} [opts]
+ * @returns {Array<{t0:number,t1:number,dur:number,i0:number,i1:number,kind:string}>}
+ *   segments shaped like buildShots(), or [] to keep the cut-based shots
+ */
+export function markShots(scan, {
+  maxMarks = LAYOUT_DEFAULTS.markMaxMarks,
+  minSeconds = LAYOUT_DEFAULTS.markMinSeconds,
+} = {}) {
+  if (!scan || !scan.textMotion) return [];
+  const duration = scan.duration ?? 0;
+  const effFps = scan.effFps > 0 ? scan.effFps : 25;
+  if (!(duration > 0)) return [];
+  const times = markTimes(scan.micro, effFps).filter((t) => t > 0 && t < duration);
+  if (times.length < 2 || times.length > maxMarks) return [];
+
+  const bounds = [0];
+  for (const t of times) {
+    if (t - bounds[bounds.length - 1] < minSeconds) continue;
+    if (duration - t < minSeconds) continue;
+    bounds.push(t);
+  }
+  bounds.push(duration);
+  if (bounds.length < 3) return [];
+
+  const frames = Math.max(1, scan.frames ?? Math.round(duration * effFps));
+  const out = [];
+  for (let i = 0; i + 1 < bounds.length; i += 1) {
+    const t0 = bounds[i];
+    const t1 = bounds[i + 1];
+    out.push({
+      t0: +t0.toFixed(3),
+      t1: +t1.toFixed(3),
+      dur: +(t1 - t0).toFixed(3),
+      i0: clamp(Math.round(t0 * effFps), 0, frames - 1),
+      i1: clamp(Math.round(t1 * effFps) - 1, 0, frames - 1),
+      kind: 'mark',
+    });
+  }
+  return out;
 }
 
 /* --------------------------------------------------------------- features */
@@ -522,11 +593,21 @@ export function planCells(opts) {
   const feats = shots.map((s) => shotFeatures(s, scan));
   const weights = shots.map((s, k) => shotWeight(s, feats[k], audio, duration));
 
+  // A deck has no shots to spread the budget over: its cards are separated by
+  // moves too small to be cuts, so the units are the marks, and the one shot
+  // they all belong to is still what the plan reports them against — one shot,
+  // six pictures, which is exactly what the manifest should say.
+  const marks = markShots(scan);
+  const parts = marks.length ? marks : shots;
+  const partFeats = marks.length ? parts.map((s) => shotFeatures(s, scan)) : feats;
+  const partWeights = marks.length ? parts.map((s, k) => shotWeight(s, partFeats[k], audio, duration)) : weights;
+
   // A unit is what a cell represents: usually one shot, and one merged group
   // of shots when the cut rate outruns the budget.
-  let units = shots.map((s, k) => ({
+  let units = parts.map((s, k) => ({
     i0: s.i0, i1: s.i1, t0: s.t0, t1: s.t1, dur: s.dur, kind: s.kind,
-    weight: weights[k].w, feats: feats[k], members: [k],
+    weight: partWeights[k].w, feats: partFeats[k],
+    members: marks.length ? [0] : [k],
   }));
   let mergedGroups = 0;
   if (units.length > budget) {
@@ -552,7 +633,8 @@ export function planCells(opts) {
     });
     chosenIdx.push(pick.i);
     perUnit.set(k, (perUnit.get(k) ?? 0) + 1);
-    for (const m of units[k].members) perShot.set(m, (perShot.get(m) ?? 0) + 1);
+    // A mark-derived unit names the same shot as every other card; count it once.
+    for (const m of new Set(units[k].members)) perShot.set(m, (perShot.get(m) ?? 0) + 1);
   };
   for (const k of eligible) {
     const pick = bestFrameIndex(units[k].i0, units[k].i1, scan.vectors);

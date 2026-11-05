@@ -11,6 +11,7 @@ import {
   keyframeMode,
   microMotionStats,
   detectTextMotion,
+  markTimes,
 } from '../src/scan.js';
 
 const BW = 4;
@@ -327,4 +328,20 @@ test('detectTextMotion only fires on a cutless clip whose marks are the content'
   assert.equal(detectTextMotion({ micro: null, cuts: [], duration: 30 }), null);
   assert.equal(detectTextMotion({ micro: { ...micro, events: 2 }, cuts: [], duration: 30 }), null,
     'two swaps is not a clip about its text');
+});
+
+test('markTimes says when the marks landed, so a layout can break there', () => {
+  // The pair (1, 2) moved a little, so frame 2 is the first frame of the new
+  // card: the time is attributed to the frame after the pair, not before it.
+  const micro = { frac: Float32Array.from([0, 0.012, 0, 0.03, 0.4, 0]) };
+  assert.deepEqual(markTimes(micro, 10), [0.2, 0.4]);
+
+  const { blocks, bw, bh, frames } = captionBlocks();
+  const caption = microMotionStats({ blocks, bw, bh, frames });
+  assert.equal(markTimes(caption, 25).length, caption.events,
+    'the same band the statistics counted, so the two cannot disagree');
+
+  assert.deepEqual(markTimes(null, 25), []);
+  assert.deepEqual(markTimes({ frac: new Float32Array(0) }, 25), []);
+  assert.deepEqual(markTimes(micro, 0), [], 'a scan with no frame rate has no times');
 });

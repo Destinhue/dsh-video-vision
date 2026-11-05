@@ -20,6 +20,7 @@ import {
   cellReadability,
   planGrid,
   pictureChangeFraction,
+  markShots,
 } from '../src/layout.js';
 
 const BW = 12;
@@ -472,4 +473,100 @@ test('planCells says when the rail, not the caller, decided the count', () => {
   const small = planCells({ scan, aspect: 16 / 9, srcHeight: 1440, maxCells: 4 });
   assert.equal(small.reduced, null);
   assert.ok(small.budget <= 4);
+});
+
+/* ------------------------------------------------------- mark-driven clips */
+
+/**
+ * A six-card deck: one picture for the whole clip, a small move every five
+ * seconds, and no cut anywhere — the shape the report was about. The blocks
+ * barely differ between cards (a line of text changed), so the old planner
+ * correctly called them "the same picture" and spent one cell on thirty
+ * seconds.
+ */
+function deckScan({ duration = 30, effFps = 10, cards = 6, extraMarks = [] } = {}) {
+  const cardSec = duration / cards;
+  const scan = makeScan({
+    duration,
+    effFps,
+    blockAt: (i) => 40 + Math.min(cards - 1, Math.floor(i / Math.max(1, cardSec * effFps))),
+  });
+  const pairs = Math.max(0, scan.frames - 1);
+  const frac = new Float32Array(pairs);
+  for (let c = 1; c < cards; c += 1) {
+    frac[Math.round(c * cardSec * effFps) - 1] = 0.036;
+  }
+  for (const t of extraMarks) frac[Math.round(t * effFps) - 1] = 0.02;
+  scan.micro = {
+    frac,
+    pairs,
+    events: cards - 1 + extraMarks.length,
+    density: (cards - 1 + extraMarks.length) / pairs,
+    medFrac: 0.036,
+    medBlocks: 3,
+    topShare: 1,
+  };
+  scan.textMotion = {
+    events: scan.micro.events,
+    density: +scan.micro.density.toFixed(3),
+    medFrac: 0.036,
+    topShare: 1,
+    reason: 'the picture hardly changes; the marks on it do',
+  };
+  return scan;
+}
+
+test('a mark-driven clip is split at its marks, one card per cell', () => {
+  const scan = deckScan();
+  const marks = markShots(scan);
+  assert.equal(marks.length, 6, 'five moves, six cards');
+  assert.deepEqual(marks.map((m) => [m.t0, m.t1]),
+    [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]]);
+  assert.ok(marks.every((m) => m.kind === 'mark'), 'a mark is not a cut and does not pretend to be');
+  assert.deepEqual(marks.map((m) => [m.i0, m.i1]),
+    [[0, 49], [50, 99], [100, 149], [150, 199], [200, 249], [250, 299]]);
+
+  const plan = planCells({ scan, detail: 'auto' });
+  assert.equal(plan.cells.length, 6, 'one picture per card, not one for the run');
+  assert.ok(plan.cells.every((c) => c.kind === 'mark'));
+  assert.deepEqual(plan.cells.map((c) => [c.t0, c.t1]),
+    [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30]]);
+  assert.equal(plan.shots.length, 1, 'the cut count is untouched: there is still one shot');
+  assert.equal(plan.shots[0].cells, 6, 'six pictures of that one shot, which is what happened');
+  assert.equal(plan.shots[0].sameAsCell, undefined, 'no card is folded onto another');
+});
+
+test('without the scan calling it text, the same clip stays one picture', () => {
+  const scan = deckScan();
+  delete scan.textMotion;
+  assert.deepEqual(markShots(scan), [], 'the verdict is what licenses the split');
+  const plan = planCells({ scan, detail: 'auto' });
+  assert.equal(plan.cells.length, 1);
+  assert.equal(plan.cells[0].kind, 'start');
+});
+
+test('a move half a second after another is a transition inside a card', () => {
+  const scan = deckScan({ extraMarks: [5.5] });
+  const marks = markShots(scan);
+  assert.equal(marks.length, 6, 'still six cards');
+  assert.deepEqual(marks.map((m) => m.t0), [0, 5, 10, 15, 20, 25],
+    'the counter that faded in half a second later did not open a card');
+});
+
+test('hundreds of marks are a subtitled film, not a deck of cards', () => {
+  const scan = deckScan({ duration: 300, cards: 60 });
+  assert.equal(scan.micro.events, 59);
+  assert.deepEqual(markShots(scan), [],
+    'the budget belongs to the film, and video_read reads those marks for free');
+
+  const couple = deckScan({ cards: 2 });
+  assert.equal(couple.micro.events, 1);
+  assert.deepEqual(markShots(couple), [], 'one move is not a deck either');
+});
+
+test('the mark gates are knobs, not constants', () => {
+  const scan = deckScan({ duration: 300, cards: 60 });
+  assert.equal(markShots(scan, { maxMarks: 100 }).length, 60);
+  const tight = deckScan({ extraMarks: [5.5] });
+  assert.equal(markShots(tight, { minSeconds: 0.4 }).length, 7, 'a tighter floor keeps the short card');
 });

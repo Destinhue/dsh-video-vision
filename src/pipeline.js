@@ -156,8 +156,16 @@ function cacheSet(key, value) {
  * The sentence a storyboard index prints when the scan says the marks are the
  * content. Exported so the wording can be tested without decoding a clip.
  */
-export function textMotionNote(textMotion) {
+export function textMotionNote(textMotion, marks = 0) {
   if (!textMotion) return null;
+  // When the marks made it onto the sheet the note has to say so: the caller is
+  // looking at one picture per card and would otherwise read "0 cuts" as "your
+  // cards were not found".
+  if (marks > 0) {
+    return `${textMotion.reason} — ${marks} of those moves are the cells below, one card each `
+      + '(0 cuts stays the honest count: the cards change, the cutter does not); '
+      + 'video_read reads the same marks as text, at no image cost';
+  }
   return `${textMotion.reason} — video_read reads those marks as text, at no image cost; `
     + 'the cells below still say when each stretch begins';
 }
@@ -231,10 +239,9 @@ export async function runStoryboard(opts) {
     cacheSet(key, analysis);
   }
   const { scan, audio } = analysis;
-  // The sheet is still the right map of *when*; it is the wrong place to look
-  // for *what*. Say so here, before the model concludes the clip is empty.
-  const textNote = textMotionNote(scan.textMotion);
-  if (textNote) notes.push(textNote);
+  // The sheet is still the right map of *when*; whether it is also the right
+  // place to look for *what* depends on the plan (see step 4): a mark-driven
+  // clip now gets one cell per card, so the note is worded there.
   if (scan.keyframes) {
     const gap = analysis.keyframeGap;
     notes.push(`analysis read keyframes only${gap ? ` (one every ${gap.toFixed(1)} s)` : ''} — `
@@ -318,6 +325,9 @@ export async function runStoryboard(opts) {
     scan, audio, detail, maxCells, aspect: probe.aspect, srcHeight: upright.height,
     dedupe: opts.dedupe === 'global' ? 'global' : true,
   });
+  const markCells = plan.cells.filter((c) => c.kind === 'mark').length;
+  const textNote = textMotionNote(scan.textMotion, markCells);
+  if (textNote) notes.push(textNote);
   if (plan.folded > 0) {
     const where = (plan.foldedCells ?? []).slice(0, 3)
       .map((f) => `${timecode(f.t0)}-${timecode(f.t1)} = cell ${f.cell}`).join(', ');

@@ -236,3 +236,53 @@ test('the marks-move note is silent unless the scan proved it, and names the rea
   assert.match(note, /video_read reads those marks as text, at no image cost/);
   assert.match(note, /the cells below still say when each stretch begins/);
 });
+
+test('when the cards are on the sheet the note says so, and does not promise a map', () => {
+  const note = textMotionNote({ reason: 'the picture hardly changes; the marks on it do' }, 6);
+  assert.match(note, /6 of those moves are the cells below, one card each/);
+  assert.match(note, /0 cuts stays the honest count: the cards change, the cutter does not/);
+  assert.match(note, /video_read reads the same marks as text, at no image cost/);
+  assert.doesNotMatch(note, /still say when each stretch begins/);
+});
+
+test('a six-card deck with no cuts gets one cell per card and still reports 0 cuts', async (t) => {
+  const ffmpegPath = await resolveTool('ffmpeg.exe', 'DSH_FFMPEG_PATH', findFfmpeg);
+  if (!ffmpegPath) return t.skip('no ffmpeg binary on this machine');
+  const ffprobePath = await resolveTool('ffprobe.exe', 'DSH_FFPROBE_PATH', findFfprobe);
+  if (!ffprobePath) return t.skip('no ffprobe binary on this machine');
+
+  mkdirSync(TMP_ROOT, { recursive: true });
+  const dir = mkdtempSync(join(TMP_ROOT, 'deck-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const input = join(dir, 'cards.mp4');
+
+  // Six cards that share every pixel except one small line, which changes
+  // colour every five seconds. No text is drawn, so no font is needed: what the
+  // case is about is the *shape* of the change — a few blocks of the grid, no
+  // cut anywhere — and that is exactly what this produces.
+  // Every card has to differ from the one before it by more than the scan's
+  // own 14-luma bar, or the change is noise by the same rule the tool uses.
+  const colours = ['0xffffff', '0x808080', '0x202020', '0xc8c8c8', '0x404040', '0xf0f0f0'];
+  const filters = colours
+    .map((c, k) => `drawbox=x=20:y=40:w=80:h=14:color=${c}@1:t=fill`
+      + `:enable='gte(t,${k * 5})*lt(t,${(k + 1) * 5})'`)
+    .join(',');
+  const built = await run(ffmpegPath, [
+    '-y', '-v', 'error',
+    '-f', 'lavfi', '-i', 'color=c=0x101014:s=320x180:r=30:d=30',
+    '-vf', filters,
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', '30',
+    input,
+  ]);
+  assert.equal(built.code, 0, `ffmpeg failed: ${built.stderr.toString()}`);
+
+  const out = await runStoryboard({ input, ffmpegPath, ffprobePath, detail: 'auto' });
+  assert.ok(out.scan.textMotion, `the scan has to call it text first: ${JSON.stringify(out.scan.micro)}`);
+  assert.equal(out.scan.cuts.length, 0, 'and there is no cut anywhere in it');
+  assert.equal(out.plan.cells.length, 6, out.manifest);
+  assert.ok(out.plan.cells.every((c) => c.kind === 'mark'), 'a card is a mark, not a cut');
+  assert.deepEqual(out.plan.cells.map((c) => c.t0), [0, 5, 10, 15, 20, 25], out.manifest);
+  assert.match(out.manifest, /0 cuts · median shot 30\.00s/, 'the honest count does not change');
+  assert.match(out.manifest, /6 of those moves are the cells below, one card each/);
+  assert.equal((out.manifest.match(/^\d+ r\d+c\d+ /gm) ?? []).length, 6, out.manifest);
+});

@@ -849,6 +849,32 @@ export function microMotionStats({ blocks, bw, bh, frames, delta = SCAN_DEFAULTS
 }
 
 /**
+ * Where those small moves happened, in seconds on the window's clock.
+ *
+ * `microMotionStats` counts the pairs that moved a little; a storyboard needs
+ * their times, because each one is the boundary between one card and the next.
+ * The band is the same one the statistics used, so this cannot disagree with
+ * `events`. The change is attributed to the frame *after* the pair (`(i + 1) /
+ * effFps`): that is the first frame on which the new card is up.
+ *
+ * @param {{frac:Float32Array}|null|undefined} micro
+ * @param {number} effFps
+ * @returns {number[]} seconds, increasing
+ */
+export function markTimes(micro, effFps = 25) {
+  const frac = micro?.frac;
+  if (!frac || !(effFps > 0)) return [];
+  const out = [];
+  for (let i = 0; i < frac.length; i += 1) {
+    const v = frac[i];
+    if (v >= SCAN_DEFAULTS.microMinFrac && v < SCAN_DEFAULTS.microMaxFrac) {
+      out.push((i + 1) / effFps);
+    }
+  }
+  return out;
+}
+
+/**
  * Is this clip *about* its text rather than its pictures?
  *
  * The answer only ever gets printed to send the next call somewhere else, so it
