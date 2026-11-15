@@ -340,6 +340,31 @@ decoded and composed into one sheet, with a note saying these are the evidence
 the file carries. A screenshot recorder pointed at a whiteboard is read that way
 rather than refused.
 
+**A file with no subtitle track can still have its words burned into the picture.**
+Plenty of clips do: a talking-head video with a caption strip, a re-upload whose
+translation is baked in, a recording whose only moving thing is the line at the
+bottom. The container reports no subtitle stream, and the screen path cannot see
+it either — a caption changes about 2 % of the picture, which never clears the
+"this screen changed 5.5 %" gate, so the clip is honestly reported as having no
+readable text.
+
+So when a screen read finds almost nothing, `video_read` spends three stills
+asking where the words are. Each still is OCR'd once, lines that have caption
+shape are clustered into one band — bottom, top, centred, or two bilingual lines;
+the position is measured rather than assumed — and the glyph height is measured
+too. Below the size where the engine stops reading and starts guessing (about
+11 px on a 720p frame) it refuses right there and puts that measurement in the
+document; above it, the band is sampled once a second, OCR'd, and the lines are
+merged into cues by similarity. The document says where the band sits, how tall
+its glyphs are, how many frames were read and at what step, and `out` writes the
+cues as a `.srt`.
+
+Measured on 1280x720 clips made for this: bottom captions on a 16-minute file
+**322 cues in 19.5 s**; top bilingual two-line captions **40 cues in 8.1 s**, glyphs
+24 px; an 11-point caption refuses as "8 px, under the 11 px floor"; a clip with
+no text and a fixed name plate report "no caption band found" and "fixed text,
+not a caption" instead of pretending to read them.
+
 A file with **sound and no picture** is read too. `video_read` checks for a video
 stream before doing anything else, and an mp3, m4a or wav becomes a transcript:
 the `transcriptFile` you pass first, else the container's subtitle track, else
@@ -558,6 +583,7 @@ src/png.js       PNG encoder (zlib)
 src/manifest.js  the text index
 src/outline.js   the text-only map of a file: windows, cuts, speech, no decode of pixels
 src/read.js      the text document: screen clustering, furniture, export, no-picture path
+src/subs.js      burned-in captions: band geometry, glyph floor, scan plan, cue merge
 src/ocr.js       three OCR backends behind one interface
 src/asr.js       chunking, silence-aware cuts, the recogniser hook
 src/transcript.js transcript files (SRT/VTT/JSON) as cues

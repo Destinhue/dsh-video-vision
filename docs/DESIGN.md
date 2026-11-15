@@ -158,6 +158,51 @@ one card each` — instead of promising a map of the cuts. The cut thresholds ar
 untouched on purpose: the same relaxation that would make a 6 % card a cut would
 make every caption line a shot.
 
+### 2.7 Words burned into the picture (`video_read`)
+
+A talking head with a caption strip, a re-upload whose translation is baked in:
+the words are on the screen, but the container has no subtitle stream and the
+screen read cannot see them. Two gates both skip it — the keyframe path needs a
+4 % change, the dense path 0.4 %, and a caption line moves about 2 % of the
+frame, so a 16-minute talking head scans as "0 screens, 6 pictures". That is the
+report "the plugin only reads the frames the OCR happened to catch".
+
+The reader already knows when this happened: it is the branch that was about to
+hand back pictures. Before it does, `src/subs.js` answers one question — *where
+are the words* — with three stills at 15 %, 45 % and 75 % of the window, OCR'd
+whole, without the reading crop (the crop trims the top 11.5 % of the frame,
+which is exactly where a top caption lives):
+
+```js
+subtitleBands(rec, { width, height })
+   // caption-shaped rows: height ≤ 10 % of the frame, width ≥ 8 % of it
+   // (a five-character line is ~14 %), centred; clustered into one band
+pickSubtitleBand(records, { scale })
+   // verdict, in order: ok → fixed → single-frame → small → no band
+   // 'fixed' is what a name plate is: the band held still across the probes
+   // 'small' carries the measured glyph height, at file resolution
+```
+
+Then the glyph height is checked before one frame is scanned: below
+`max(11 px, 1.5 % of the frame)` the engine stops reading and starts guessing, so
+the answer is the measurement ("its lines are 8 px tall on a 720 px picture,
+under the 11 px floor"), not forty minutes of wrong characters. Above the floor
+the band is sampled at 1 fps, cropped (2x upscale when glyphs are under 18 px),
+OCR'd, and lines are merged into cues by character-bigram similarity.
+
+The probe is a **second chance, not a replacement**: it runs only when the screen
+read found nothing, or a single title card and under 40 characters. A file that
+already produced screens keeps them — the legacy repro clip has four readable
+screens *and* captured captions, and it stays a screen read. When the probe runs
+and fails, its reason is quoted under the picture sheet, so a refusal is
+traceable to the band, not to the file being "not a text video".
+
+Measured on 1280x720 clips with burned-in captions and no subtitle stream:
+16 min of bottom captions → 322 cues in 19.5 s; top bilingual captions →
+40 cues in 8.1 s, glyphs 24 px; 11-point captions → refused at 8 px; a caption
+band that is a fixed name plate → refused as `fixed`. A bottom-caption clip that
+the screen path already read keeps its 26 screens and 2.5 s.
+
 ---
 
 ## 3. Cells: the budget is pixels, and pixels are not cells

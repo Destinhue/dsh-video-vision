@@ -36,6 +36,9 @@ import { encodePng } from './png.js';
 import { planGrid, sheetPixelsFor } from './layout.js';
 import { loadTranscriptFile } from './transcript.js';
 import { asrAvailable, asrCues } from './asr.js';
+import {
+  bandRect, cropExpr, mergeSubtitleCues, pickSubtitleBand, probeTimes, scanPlan, subsDocument,
+} from './subs.js';
 
 export const READ_DEFAULTS = {
   gridWidth: 96,
@@ -761,6 +764,109 @@ async function readAudio({ input, source, meta, start, end, signal, sourceTitle,
   };
 }
 
+/* --------------------------------------------------------------- captions */
+
+/** One still, at full resolution unless asked to double it. */
+function grabStill(ffmpegPath, input, t, outPath, { signal, scale = 1 } = {}) {
+  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-ss', Math.max(0, t).toFixed(3),
+    ...netInputArgs(input), '-i', input, '-frames:v', '1'];
+  if (scale > 1) args.push('-vf', `scale=iw*${scale}:ih*${scale}:flags=lanczos`);
+  args.push('-y', outPath);
+  return new Promise((resolve) => {
+    const child = spawn(ffmpegPath, args, { stdio: 'ignore', signal });
+    child.on('error', resolve);
+    child.on('close', resolve);
+  });
+}
+
+/** Write the caption band of every sampled frame, as small PNGs. */
+async function extractBandFrames(ffmpegPath, input, { start = 0, span = 1, filter, dir, signal } = {}) {
+  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin'];
+  if (start) args.push('-ss', String(start));
+  args.push(...netInputArgs(input), '-i', input);
+  if (span) args.push('-t', String(span));
+  args.push('-vf', filter, '-y', join(dir, 's%05d.png'));
+  const res = await run(ffmpegPath, args, { signal });
+  if (res.code !== 0) throw new Error(`caption extract failed (${res.code}): ${String(res.stderr).slice(-200)}`);
+}
+
+/**
+ * Read the captions that are burned into the picture.
+ *
+ * Three stills answer where the captions are (or that there are none) before a
+ * single frame is read for real; the band they agree on decides the crop; the
+ * glyph height decides whether reading it is worth anything. Only then is the
+ * window sampled on the clock and OCR'd as one batch.
+ *
+ * @returns {Promise<{cues?:object[], reason?:string, band?:object, glyphPx?:number,
+ *   height?:number, frames?:number, step?:number, probes?:number}>} a failed
+ *   probe carries the reason instead of throwing: "no captions" is an answer
+ */
+async function readCaptions({ input, ffmpegPath, start, end, signal, dir }) {
+  const from = Math.max(0, Number(start) || 0);
+  const to = Number(end) > from ? Number(end) : from + 1;
+  const span = Math.max(0.2, to - from);
+  const times = probeTimes({ start: from, end: to });
+  const stem = (i) => `p${String(i).padStart(2, '0')}`;
+  const probeDir = join(dir, 'caption-probe');
+  mkdirSync(probeDir, { recursive: true });
+  await Promise.all(times.map((t, i) => grabStill(ffmpegPath, input, t, join(probeDir, `${stem(i)}.png`), { signal })));
+  const first = await ocrDirectory(probeDir, { signal });
+  const readProbes = (map) => times.map((t, i) => ({ t, rec: map.get(stem(i)) }));
+  const height = [...first.values()][0]?.height || 0;
+  let verdict = pickSubtitleBand(readProbes(first), { requireChange: span > 6 });
+  if (!verdict.ok) {
+    // "There are no captions" and "the captions are too small to be worth
+    // reading" look identical to a full-frame pass -- both come back as no text.
+    // Doubling the same stills is the only cheap way to tell them apart: what
+    // the engine then attempts, measured back against the original picture, is
+    // the acceptance test that decides whether the file is worth scanning.
+    const bigDir = join(dir, 'caption-probe-x2');
+    mkdirSync(bigDir, { recursive: true });
+    await Promise.all(times.map((t, i) => grabStill(ffmpegPath, input, t, join(bigDir, `${stem(i)}.png`), { signal, scale: 2 })));
+    const doubled = await ocrDirectory(bigDir, { signal });
+    const again = pickSubtitleBand(readProbes(doubled), { scale: 2, requireChange: span > 6 });
+    // A doubled pass that still finds no band tells us nothing new; one that
+    // finds a band too small (or a fixed one) is the better answer.
+    if (again.ok || again.code !== 'no-band') verdict = again;
+  }
+  if (!verdict.ok) {
+    return {
+      reason: verdict.reason, glyphPx: verdict.glyphPx ?? null, text: verdict.text ?? null, probes: times.length,
+    };
+  }
+  const rect = bandRect(verdict.band);
+  const plan = scanPlan({ start: from, end: to });
+  const fps = plan.step === 1 ? 'fps=1' : `fps=1/${plan.step}`;
+  // The band was readable at full size, so OCR it at full size; only a band that
+  // passed the floor by a hair is doubled, where two more pixels per stroke turn
+  // a guess into a reading.
+  const upscale = verdict.glyphPx < 18 ? ',scale=iw*2:ih*2:flags=lanczos' : '';
+  const scanDir = join(dir, 'caption-scan');
+  mkdirSync(scanDir, { recursive: true });
+  await extractBandFrames(ffmpegPath, input, {
+    start: from, span, filter: `${fps},${cropExpr(rect)}${upscale}`, dir: scanDir, signal,
+  });
+  const scanned = await ocrDirectory(scanDir, { signal });
+  const samples = [];
+  for (let i = 0; i < plan.frames; i++) {
+    const rec = scanned.get(`s${String(i + 1).padStart(5, '0')}`);
+    const raw = (rec?.lines ?? []).map((l) => l.text).join(String.fromCharCode(10));
+    samples.push({ i, t: from + i * plan.step, text: cleanOcr(raw) });
+  }
+  const { cues, capped } = mergeSubtitleCues(samples, { step: plan.step, end: to });
+  return {
+    cues,
+    capped,
+    band: rect,
+    glyphPx: verdict.glyphPx,
+    height,
+    frames: plan.frames,
+    step: plan.step,
+    probes: times.length,
+  };
+}
+
 /**
  * Read a video as a timestamped text document.
  *
@@ -1055,8 +1161,73 @@ export async function runRead(opts) {
 
     // One array, one count: the header, the note, the outline and every quoted
     // line come from the same list, so the numbers cannot disagree with the body.
-    const { usable } = usableScreens(deduped);
+    const { usable, chars: readableChars } = usableScreens(deduped);
     const name = sourceTitle || input.split(/[\\/]/).pop();
+
+    // The screen read only opens its gate on text that changes a large part of
+    // the picture; a caption strip changes 2% of it. So a video whose words are
+    // burned in comes back empty -- or with a title card and nothing else. When
+    // that happens, ask the picture where the captions are instead of reporting
+    // a file full of speech as having no text at all. A file that did produce
+    // screens keeps them: the caption probe is a second chance, not a replacement.
+    let captions = null;
+    const thinRead = !usable.length || (usable.length < 3 && readableChars < 40);
+    if (thinRead) {
+      const t3 = Date.now();
+      try {
+        captions = await readCaptions({
+          input: source, ffmpegPath, start, end: knownEnd, signal, dir,
+        });
+      } catch (error) {
+        captions = { reason: String(error?.message ?? error) };
+      }
+      timings.captions = Date.now() - t3;
+    }
+    if (captions?.cues?.length) {
+      timings.total = Date.now() - wall;
+      const doc = subsDocument({
+        title: name,
+        cues: captions.cues,
+        band: captions.band,
+        glyphPx: captions.glyphPx,
+        height: captions.height,
+        frames: captions.frames,
+        step: captions.step,
+        duration: knownEnd || 0,
+        end: knownEnd || 0,
+        screens: usable,
+        ms: timings.total,
+      });
+      const written = withExport(doc.text, captions.cues, opts.out, {
+        empty: 'nothing to write — no caption line was read from this window',
+      });
+      return {
+        text: written.text,
+        screens: [],
+        outline: [],
+        cues: captions.cues,
+        wrote: written.wrote,
+        pictures: [],
+        png: null,
+        sheet: null,
+        burnedIn: true,
+        stats: {
+          keyframes: stamps.length,
+          changed,
+          capped,
+          maxScreens,
+          clustered: picked.length,
+          screens: 0,
+          captions: captions.cues.length,
+          captionFrames: captions.frames,
+          captionStep: captions.step,
+          glyphPx: Math.round((captions.glyphPx || 0) * 10) / 10,
+          chars: written.text.length,
+          furniture: cleaned.dropped.length,
+        },
+        timings,
+      };
+    }
 
     if (!usable.length) {
       // No text anywhere in the window: the information is a picture, not words.
@@ -1086,6 +1257,14 @@ export async function runRead(opts) {
           + 'these frames are the evidence the file carries, so read them as a storyboard');
       } else {
         lines.push('note: the frames could not be decoded either — video_storyboard reports why');
+      }
+      // The viewer's case is exactly this branch: a picture that holds captions,
+      // and no subtitle track. Say what the band probe found, so a refusal is
+      // traceable and a photo of a sign is not blamed on it.
+      if (captions?.reason) {
+        lines.push(`note: the picture was also searched for burned-in captions — ${captions.reason}`);
+      } else if (captions) {
+        lines.push('note: a caption band was found but no line in it was stable enough to quote');
       }
       lines.push('note: for words, pass transcriptFile (SRT, VTT or JSON) or set DSH_ASR_CMD '
         + '— a file with an audio track is then read as a transcript');

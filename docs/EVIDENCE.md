@@ -246,6 +246,28 @@ the first storyboard or read pays for the download once: a 3:33 music video is
 the file is cached under `$DSH_HOME/cache/video-vision/bilibili/` for every call
 after that.
 
+### Burned-in captions
+
+Clips with the words on the picture and no subtitle stream, 1280x720, built for
+this measurement (caption text burned by `ffmpeg -vf ass=`, silent audio track,
+so nothing but the picture can be read):
+
+| clip | answer | wall clock | notes |
+| --- | --- | --- | --- |
+| bottom captions, 16 min, 322 cues | **322 cues** | **19.5 s** | glyph 31 px, band y 88–97 %, 966 frames at 1 s |
+| top bilingual two lines, 2 min | **40 cues** | **8.1 s** | glyph 24 px, band y 0–17 % (the old crop hid it) |
+| bottom captions, 90 s | 26 screens, 877 chars | 2.5 s | the screen path already read it; no probe |
+| 11-point captions, 60 s | refused | 0.6 s | "8 px tall on a 720 px picture, under the 11 px floor" |
+| testsrc2, no text, 30 s | refused | 0.9 s | "no line of caption shape was found" |
+| centred static name plate, 20 s | refused | 0.7 s | "a fixed band of text held still across the probes" |
+
+The cost of the band scan is the band, not the film: a 1228x100 crop OCRs in
+**23.9 ms** against 83 ms for a whole 720p frame, and 966 band frames are
+extracted in 386 ms — 16 minutes of captions for 19.5 s, where the screen path
+would have paid a whole-frame OCR for every changed frame and still found
+nothing. The three probe stills are the entire cost of a file that turns out to
+have no captions: a `testsrc2` clip answers in 0.9 s.
+
 ### The map, before any picture
 
 `video_outline` draws nothing, so its cost is whatever the analysis pass costs:

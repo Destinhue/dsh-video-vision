@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.4.6 — words burned into the picture
+
+- **A clip with no subtitle track is read, not just looked at.** A talking head
+  with a caption strip, a re-upload with its translation baked in, a recording
+  whose only moving thing is the bottom line: the container reports no subtitle
+  stream, and the screen path cannot find it either — a caption changes about 2 %
+  of the picture, far under the 5.5 % screen gate and the 4 % keyframe gate, so
+  the clip came back as `6 pictures` with an honest "no readable text".
+- **Three stills answer "where are the words", and the answer is measured.**
+  `src/subs.js` reads the OCR line boxes of stills at 15 %, 45 % and 75 % of the
+  window and clusters caption-shaped rows into one band: height ≤ 10 % of the
+  frame, width ≥ 8 % (a five-character line is 14 %), centred, present on at least
+  two of the three stills, and with changing text — a plate that holds still is a
+  name card, not a caption. Only then is the band sampled at one frame per second,
+  cropped (plus a 2x upscale when glyphs are under 18 px), OCR'd and merged into
+  cues by similarity; `out` writes them as `.srt`/`.vtt`.
+- **The glyph height is checked before a single frame is scanned.** Below
+  `max(11 px, 1.5 % of the frame)` the engine stops reading and starts guessing,
+  so `video_read` refuses there and reports the measurement — "its lines are 8 px
+  tall on a 720 px picture, under the 11 px floor" — instead of emitting a film's
+  worth of wrong characters. The band position is measured too: the old fixed
+  bottom-only crop (y 11.5 %–100 %) is why top captions were invisible.
+- **Measured, 1280x720 clips with burned-in captions and no subtitle stream.**
+  Bottom captions, 16-minute file: **322 cues, 19.5 s, glyph 31 px** (the 322 are
+  the 322 cues written into the source). Top bilingual two-line captions: **40
+  cues, 8.1 s, glyph 24 px, band 0 %–17 %**. 11-point captions: refused at 8 px.
+  A `testsrc2` clip with no text: "no line of caption shape was found". A centred
+  static name plate: "a fixed band of text held still across the probes". A
+  bottom-caption clip under fifteen minutes keeps its old path unchanged
+  (26 screens, 877 chars, 2.5 s) — the probe runs only when the screen read found
+  nothing, or a title card and under 40 characters; a file that already produced
+  screens keeps them, and the probe's own failure is quoted under the picture
+  sheet ("the picture was also searched for burned-in captions — ...").
+- `test/subs.test.mjs` covers the geometry, the verdict order (ok → fixed →
+  single-frame → small → no band), the band rect and crop expression, the scan
+  plan, cue merging and the document, 20 tests.
+- Suite is 359 tests (357 pass, 2 skip for a missing ffmpeg on the host).
+
 ## 1.4.5 — a deck is cells, not one cell
 
 - **A text-card clip stops being one picture.** Six 1280x720 title cards that
